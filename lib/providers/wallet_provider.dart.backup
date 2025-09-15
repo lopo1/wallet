@@ -15,7 +15,6 @@ import '../services/mnemonic_service.dart';
 import '../services/address_service.dart';
 import '../services/solana_wallet_service.dart';
 import '../services/transaction_monitor_service.dart';
-import '../services/solana_transaction_monitor.dart';
 
 class WalletProvider extends ChangeNotifier {
   List<Wallet> _wallets = [];
@@ -35,7 +34,6 @@ class WalletProvider extends ChangeNotifier {
   final StorageService _storageService = StorageService();
   SolanaWalletService? _solanaWalletService;
   TransactionMonitorService? _transactionMonitorService;
-  SolanaTransactionMonitor? _solanaTransactionMonitor;
 
   WalletProvider() {
     _initializeSupportedNetworks();
@@ -51,7 +49,6 @@ class WalletProvider extends ChangeNotifier {
     );
 
     _solanaWalletService = SolanaWalletService(solanaNetwork.rpcUrl);
-    _solanaTransactionMonitor = SolanaTransactionMonitor(solanaNetwork.rpcUrl);
   }
 
   /// 获取Solana服务
@@ -1104,8 +1101,33 @@ class WalletProvider extends ChangeNotifier {
     return await _solanaWalletService!.predictConfirmationTimes();
   }
 
-  /// 发送Solana交易并实时监控费用
-  Future<Stream<SolanaTransaction>> sendSolanaTransactionWithMonitoring({
+  /// 获取Solana网络状态
+  Future<Map<String, dynamic>> getSolanaNetworkStatus() async {
+    if (_solanaWalletService == null) {
+      return {'error': 'Solana服务未初始化'};
+    }
+    return await _solanaWalletService!.getNetworkStatus();
+  }
+
+  /// 获取Solana交易费用预估
+  Future<Map<SolanaTransactionPriority, SolanaTransactionFee>>
+      getSolanaFeeEstimates({
+    required String toAddress,
+    required double amount,
+  }) async {
+    if (_currentWallet?.mnemonic == null || _solanaWalletService == null) {
+      throw Exception('钱包或Solana服务未初始化');
+    }
+
+    return await _solanaWalletService!.getAllPriorityFees(
+      mnemonic: _currentWallet!.mnemonic!,
+      toAddress: toAddress,
+      amount: amount,
+    );
+  }
+
+  /// 发送Solana交易
+  Future<SolanaTransaction> sendSolanaTransaction({
     required String toAddress,
     required double amount,
     required SolanaTransactionPriority priority,
@@ -1113,9 +1135,7 @@ class WalletProvider extends ChangeNotifier {
     int? customComputeUnits,
     int? customComputeUnitPrice,
   }) async {
-    if (_currentWallet?.mnemonic == null ||
-        _solanaWalletService == null ||
-        _solanaTransactionMonitor == null) {
+    if (_currentWallet?.mnemonic == null || _solanaWalletService == null) {
       throw Exception('钱包或Solana服务未初始化');
     }
 
@@ -1124,8 +1144,7 @@ class WalletProvider extends ChangeNotifier {
       throw Exception('无法获取发送地址');
     }
 
-    // 发送交易
-    final transaction = await _solanaWalletService!.sendSolTransfer(
+    return await _solanaWalletService!.sendSolTransfer(
       mnemonic: _currentWallet!.mnemonic!,
       fromAddress: fromAddress,
       toAddress: toAddress,
@@ -1135,23 +1154,34 @@ class WalletProvider extends ChangeNotifier {
       customComputeUnits: customComputeUnits,
       customComputeUnitPrice: customComputeUnitPrice,
     );
-
-    // 开始监控交易，返回实时更新流
-    return _solanaTransactionMonitor!.monitorTransaction(transaction);
   }
 
-  /// 监控现有的Solana交易
-  Stream<SolanaTransaction> monitorSolanaTransaction(
-      SolanaTransaction transaction) {
-    if (_solanaTransactionMonitor == null) {
-      throw Exception('Solana交易监控服务未初始化');
+  /// 优化Solana交易费用
+  Future<SolanaTransactionFee> optimizeSolanaFee({
+    required String toAddress,
+    required double amount,
+    required double maxFeeInSol,
+  }) async {
+    if (_currentWallet?.mnemonic == null || _solanaWalletService == null) {
+      throw Exception('钱包或Solana服务未初始化');
     }
-    return _solanaTransactionMonitor!.monitorTransaction(transaction);
+
+    return await _solanaWalletService!.optimizeTransactionFee(
+      mnemonic: _currentWallet!.mnemonic!,
+      toAddress: toAddress,
+      amount: amount,
+      maxFeeInSol: maxFeeInSol,
+    );
   }
 
-  /// 停止监控Solana交易
-  void stopMonitoringSolanaTransaction(String signature) {
-    _solanaTransactionMonitor?.stopMonitoring(signature);
+  /// 预测Solana交易确认时间
+  Future<Map<SolanaTransactionPriority, Duration>>
+      predictSolanaConfirmationTimes() async {
+    if (_solanaWalletService == null) {
+      throw Exception('Solana服务未初始化');
+    }
+
+    return await _solanaWalletService!.predictConfirmationTimes();
   }
 
   /// 发送交易
@@ -1265,6 +1295,14 @@ class WalletProvider extends ChangeNotifier {
       if (fromAddress == null) {
         throw Exception('无法获取发送地址');
       }
+
+      // 打印调试信息
+      debugPrint('=== 钱包信息调试 ===');
+      debugPrint('钱包ID: ${_currentWallet!.id}');
+      debugPrint('当前网络: ${_currentNetwork?.id}');
+      debugPrint('获取到的助记词: $mnemonic');
+      debugPrint('从钱包获取的地址: $fromAddress');
+      debugPrint('==================');
 
       // 确定交易优先级
       SolanaTransactionPriority priority;
@@ -1468,6 +1506,22 @@ class WalletProvider extends ChangeNotifier {
     }
   }
 
+  /// 停止监控Solana交易
+  void stopMonitoringSolanaTransaction(String signature) {
+    // 暂时注释掉，因为TransactionMonitorService接口不匹配
+    // if (_transactionMonitorService == null) {
+    //   debugPrint('交易监控服务未初始化');
+    //   return;
+    // }
+
+    try {
+      // _transactionMonitorService!.stopMonitoring(signature);
+      debugPrint('停止监控交易: $signature');
+    } catch (e) {
+      debugPrint('停止监控交易失败: $e');
+    }
+  }
+
   /// 获取交易监控状态
   Map<String, dynamic> getSolanaTransactionMonitorStatus(String signature) {
     // 暂时返回默认状态，因为TransactionMonitorService接口不匹配
@@ -1513,6 +1567,59 @@ class WalletProvider extends ChangeNotifier {
       debugPrint('监控统计信息已重置');
     } catch (e) {
       debugPrint('重置监控统计信息失败: $e');
+    }
+  }
+
+  /// 发送Solana交易并自动开始监控
+  Future<String> sendSolanaTransactionWithMonitoring({
+    required String toAddress,
+    required double amount,
+    required String password,
+    String? memo,
+    double priorityFeeMultiplier = 1.0,
+  }) async {
+    try {
+      // 发送交易
+      final signature = await _sendSolanaTransaction(
+        toAddress: toAddress,
+        amount: amount,
+        rpcUrl: _currentNetwork?.rpcUrl ?? '',
+        password: password,
+        memo: memo,
+        priorityFeeMultiplier: priorityFeeMultiplier,
+      );
+
+      // 获取交易对象并开始监控
+      final pendingTransactions = getPendingSolanaTransactions();
+      final transaction = pendingTransactions.firstWhere(
+        (tx) => tx.signature == signature,
+        orElse: () => SolanaTransaction(
+          id: 'unknown_$signature',
+          type: SolanaTransactionType.transfer,
+          status: SolanaTransactionStatus.processing,
+          fromAddress: getCurrentNetworkAddress() ?? '',
+          toAddress: toAddress,
+          amount: (amount * 1000000000).toInt(),
+          instructions: [],
+          fee: const SolanaTransactionFee(
+            baseFee: 5000,
+            priorityFee: 1000,
+            totalFee: 6000,
+            priorityMultiplier: 1.0,
+          ),
+          recentBlockhash: '',
+          createdAt: DateTime.now(),
+          signature: signature,
+        ),
+      );
+
+      // 开始监控交易
+      await startMonitoringSolanaTransaction(transaction);
+
+      return signature;
+    } catch (e) {
+      debugPrint('发送Solana交易并监控失败: $e');
+      rethrow;
     }
   }
 

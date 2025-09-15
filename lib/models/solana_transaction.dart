@@ -1,41 +1,38 @@
-import 'dart:typed_data';
-import 'package:solana/solana.dart';
-
 /// Solana交易状态枚举
 enum SolanaTransactionStatus {
-  pending,     // 待处理
-  processing,  // 处理中
-  confirmed,   // 已确认
-  finalized,   // 已最终确认
-  failed,      // 失败
-  timeout,     // 超时
+  pending, // 待处理
+  processing, // 处理中
+  confirmed, // 已确认
+  finalized, // 已最终确认
+  failed, // 失败
+  timeout, // 超时
 }
 
 /// Solana交易类型枚举
 enum SolanaTransactionType {
-  transfer,        // 转账
-  createAccount,   // 创建账户
-  dataStorage,     // 数据存储
-  tokenTransfer,   // 代币转账
-  custom,          // 自定义
+  transfer, // 转账
+  createAccount, // 创建账户
+  dataStorage, // 数据存储
+  tokenTransfer, // 代币转账
+  custom, // 自定义
 }
 
 /// Solana交易优先级
 enum SolanaTransactionPriority {
-  low,     // 低优先级
-  medium,  // 中等优先级
-  high,    // 高优先级
+  low, // 低优先级
+  medium, // 中等优先级
+  high, // 高优先级
   veryHigh, // 极高优先级
 }
 
 /// Solana交易费用信息
 class SolanaTransactionFee {
-  final int baseFee;              // 基础手续费 (lamports)
-  final int priorityFee;          // 优先费 (lamports)
-  final int totalFee;             // 总手续费 (lamports)
+  final int baseFee; // 基础手续费 (lamports)
+  final int priorityFee; // 优先费 (lamports)
+  final int totalFee; // 总手续费 (lamports)
   final double priorityMultiplier; // 优先费倍数
-  final int computeUnits;         // 计算单元
-  final int computeUnitPrice;     // 计算单元价格
+  final int computeUnits; // 计算单元
+  final int computeUnitPrice; // 计算单元价格
 
   const SolanaTransactionFee({
     required this.baseFee,
@@ -71,12 +68,12 @@ class SolanaTransactionFee {
 
 /// Solana交易确认信息
 class SolanaTransactionConfirmation {
-  final int slot;                    // 区块槽位
-  final int confirmations;           // 确认数
-  final String? blockHash;           // 区块哈希
-  final DateTime? blockTime;         // 区块时间
-  final bool isFinalized;            // 是否最终确认
-  final String? err;                 // 错误信息
+  final int slot; // 区块槽位
+  final int confirmations; // 确认数
+  final String? blockHash; // 区块哈希
+  final DateTime? blockTime; // 区块时间
+  final bool isFinalized; // 是否最终确认
+  final String? err; // 错误信息
 
   const SolanaTransactionConfirmation({
     required this.slot,
@@ -103,7 +100,8 @@ class SolanaTransactionConfirmation {
       slot: json['slot'],
       confirmations: json['confirmations'],
       blockHash: json['blockHash'],
-      blockTime: json['blockTime'] != null ? DateTime.parse(json['blockTime']) : null,
+      blockTime:
+          json['blockTime'] != null ? DateTime.parse(json['blockTime']) : null,
       isFinalized: json['isFinalized'] ?? false,
       err: json['err'],
     );
@@ -112,26 +110,26 @@ class SolanaTransactionConfirmation {
 
 /// Solana交易主类
 class SolanaTransaction {
-  final String id;                              // 交易ID
-  final String? signature;                      // 交易签名
-  final SolanaTransactionType type;             // 交易类型
-  final SolanaTransactionStatus status;         // 交易状态
-  final String fromAddress;                     // 发送地址
-  final String? toAddress;                      // 接收地址
-  final int? amount;                           // 转账金额 (lamports)
-  final List<dynamic> instructions;   // 交易指令列表
-  final SolanaTransactionFee fee;              // 手续费信息
-  final String recentBlockhash;                // 最新区块哈希
-  final SolanaTransactionPriority priority;    // 交易优先级
-  final String? memo;                          // 备注信息
-  final Map<String, dynamic>? customData;      // 自定义数据
-  final DateTime createdAt;                    // 创建时间
-  final DateTime? sentAt;                      // 发送时间
-  final DateTime? confirmedAt;                 // 确认时间
+  final String id; // 交易ID
+  final String? signature; // 交易签名
+  final SolanaTransactionType type; // 交易类型
+  final SolanaTransactionStatus status; // 交易状态
+  final String fromAddress; // 发送地址
+  final String? toAddress; // 接收地址
+  final int? amount; // 转账金额 (lamports)
+  final List<dynamic> instructions; // 交易指令列表
+  final SolanaTransactionFee fee; // 手续费信息
+  final String recentBlockhash; // 最新区块哈希
+  final SolanaTransactionPriority priority; // 交易优先级
+  final String? memo; // 备注信息
+  final Map<String, dynamic>? customData; // 自定义数据
+  final DateTime createdAt; // 创建时间
+  final DateTime? sentAt; // 发送时间
+  final DateTime? confirmedAt; // 确认时间
   final SolanaTransactionConfirmation? confirmation; // 确认信息
-  final String? errorMessage;                  // 错误信息
-  final int retryCount;                        // 重试次数
-  final int maxRetries;                        // 最大重试次数
+  final String? errorMessage; // 错误信息
+  final int retryCount; // 重试次数
+  final int maxRetries; // 最大重试次数
 
   const SolanaTransaction({
     required this.id,
@@ -256,15 +254,18 @@ class SolanaTransaction {
   }
 
   /// 检查交易是否可以重试
-  bool get canRetry => retryCount < maxRetries && status == SolanaTransactionStatus.failed;
+  bool get canRetry =>
+      retryCount < maxRetries && status == SolanaTransactionStatus.failed;
 
   /// 检查交易是否已完成
-  bool get isCompleted => status == SolanaTransactionStatus.confirmed || 
-                         status == SolanaTransactionStatus.finalized;
+  bool get isCompleted =>
+      status == SolanaTransactionStatus.confirmed ||
+      status == SolanaTransactionStatus.finalized;
 
   /// 检查交易是否失败
-  bool get isFailed => status == SolanaTransactionStatus.failed || 
-                      status == SolanaTransactionStatus.timeout;
+  bool get isFailed =>
+      status == SolanaTransactionStatus.failed ||
+      status == SolanaTransactionStatus.timeout;
 
   /// 获取交易状态描述
   String get statusDescription {
@@ -334,8 +335,10 @@ class SolanaTransaction {
       customData: json['customData'],
       createdAt: DateTime.parse(json['createdAt']),
       sentAt: json['sentAt'] != null ? DateTime.parse(json['sentAt']) : null,
-      confirmedAt: json['confirmedAt'] != null ? DateTime.parse(json['confirmedAt']) : null,
-      confirmation: json['confirmation'] != null 
+      confirmedAt: json['confirmedAt'] != null
+          ? DateTime.parse(json['confirmedAt'])
+          : null,
+      confirmation: json['confirmation'] != null
           ? SolanaTransactionConfirmation.fromJson(json['confirmation'])
           : null,
       errorMessage: json['errorMessage'],

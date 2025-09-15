@@ -5,7 +5,7 @@ import '../providers/wallet_provider.dart';
 
 class Sidebar extends StatefulWidget {
   final Function(bool)? onCollapseChanged;
-  
+
   const Sidebar({super.key, this.onCollapseChanged});
 
   @override
@@ -27,7 +27,9 @@ class _SidebarState extends State<Sidebar> {
           Container(
             padding: EdgeInsets.all(_isCollapsed ? 12 : 24),
             child: Row(
-              mainAxisAlignment: _isCollapsed ? MainAxisAlignment.center : MainAxisAlignment.spaceBetween,
+              mainAxisAlignment: _isCollapsed
+                  ? MainAxisAlignment.center
+                  : MainAxisAlignment.spaceBetween,
               children: [
                 if (!_isCollapsed)
                   Container(
@@ -46,11 +48,11 @@ class _SidebarState extends State<Sidebar> {
                 if (!_isCollapsed)
                   GestureDetector(
                     onTap: () {
-                       setState(() {
-                         _isCollapsed = !_isCollapsed;
-                       });
-                       widget.onCollapseChanged?.call(_isCollapsed);
-                     },
+                      setState(() {
+                        _isCollapsed = !_isCollapsed;
+                      });
+                      widget.onCollapseChanged?.call(_isCollapsed);
+                    },
                     child: const Icon(
                       Icons.chevron_left,
                       color: Colors.white70,
@@ -60,11 +62,11 @@ class _SidebarState extends State<Sidebar> {
                 if (_isCollapsed)
                   GestureDetector(
                     onTap: () {
-                       setState(() {
-                         _isCollapsed = !_isCollapsed;
-                       });
-                       widget.onCollapseChanged?.call(_isCollapsed);
-                     },
+                      setState(() {
+                        _isCollapsed = !_isCollapsed;
+                      });
+                      widget.onCollapseChanged?.call(_isCollapsed);
+                    },
                     child: const Icon(
                       Icons.chevron_right,
                       color: Colors.white70,
@@ -107,7 +109,7 @@ class _SidebarState extends State<Sidebar> {
               builder: (context, walletProvider, child) {
                 final networks = walletProvider.supportedNetworks;
                 final currentNetwork = walletProvider.currentNetwork;
-                
+
                 return ListView(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   children: networks.map((network) {
@@ -115,8 +117,10 @@ class _SidebarState extends State<Sidebar> {
                     final isExpanded = _expandedNetworkId == network.id;
                     final currentWallet = walletProvider.currentWallet;
                     final addressList = currentWallet?.addresses[network.id];
-                    final networkAddress = addressList?.isNotEmpty == true ? addressList!.first : null;
-                    
+                    final networkAddress = addressList?.isNotEmpty == true
+                        ? addressList!.first
+                        : null;
+
                     return Column(
                       children: [
                         _buildNetworkItem(
@@ -130,14 +134,21 @@ class _SidebarState extends State<Sidebar> {
                           onTap: () {
                             walletProvider.setCurrentNetwork(network);
                           },
-                          onDropdownTap: networkAddress != null && !_isCollapsed ? () {
-                            setState(() {
-                              _expandedNetworkId = isExpanded ? null : network.id;
-                            });
-                          } : null,
+                          onDropdownTap: networkAddress != null && !_isCollapsed
+                              ? () {
+                                  setState(() {
+                                    _expandedNetworkId =
+                                        isExpanded ? null : network.id;
+                                  });
+                                }
+                              : null,
                         ),
-                        if (isExpanded && addressList != null && addressList.isNotEmpty && !_isCollapsed)
-                          ...addressList.map((address) => _buildAddressDropdown(address)),
+                        if (isExpanded &&
+                            addressList != null &&
+                            addressList.isNotEmpty &&
+                            !_isCollapsed)
+                          ...addressList
+                              .map((address) => _buildAddressDropdown(address)),
                       ],
                     );
                   }).toList(),
@@ -161,6 +172,15 @@ class _SidebarState extends State<Sidebar> {
                   icon: Icons.build,
                   name: 'Toolbox',
                   isCollapsed: _isCollapsed,
+                ),
+                const SizedBox(height: 8),
+                _buildBottomItem(
+                  icon: Icons.calculate,
+                  name: 'Solana 费用估算',
+                  isCollapsed: _isCollapsed,
+                  onTap: () {
+                    Navigator.pushNamed(context, '/solana-fee-estimator');
+                  },
                 ),
               ],
             ),
@@ -231,7 +251,8 @@ class _SidebarState extends State<Sidebar> {
                       style: TextStyle(
                         color: isSelected ? Colors.white : Colors.white70,
                         fontSize: 14,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                        fontWeight:
+                            isSelected ? FontWeight.w600 : FontWeight.w400,
                       ),
                     ),
                   ),
@@ -239,7 +260,9 @@ class _SidebarState extends State<Sidebar> {
                     GestureDetector(
                       onTap: onDropdownTap,
                       child: Icon(
-                        isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                        isExpanded
+                            ? Icons.keyboard_arrow_up
+                            : Icons.keyboard_arrow_down,
                         color: Colors.white70,
                         size: 16,
                       ),
@@ -255,39 +278,44 @@ class _SidebarState extends State<Sidebar> {
     required String name,
     bool isSelected = false,
     bool isCollapsed = false,
+    VoidCallback? onTap,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(
-        color: isSelected ? const Color(0xFF3A3D4A) : Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: isCollapsed
-          ? Center(
-              child: Icon(
-                icon,
-                color: isSelected ? Colors.white : Colors.white70,
-                size: 20,
-              ),
-            )
-          : Row(
-              children: [
-                Icon(
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF3A3D4A) : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: isCollapsed
+            ? Center(
+                child: Icon(
                   icon,
                   color: isSelected ? Colors.white : Colors.white70,
                   size: 20,
                 ),
-                const SizedBox(width: 12),
-                Text(
-                  name,
-                  style: TextStyle(
+              )
+            : Row(
+                children: [
+                  Icon(
+                    icon,
                     color: isSelected ? Colors.white : Colors.white70,
-                    fontSize: 14,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                    size: 20,
                   ),
-                ),
-              ],
-            ),
+                  const SizedBox(width: 12),
+                  Text(
+                    name,
+                    style: TextStyle(
+                      color: isSelected ? Colors.white : Colors.white70,
+                      fontSize: 14,
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.w400,
+                    ),
+                  ),
+                ],
+              ),
+      ),
     );
   }
 
@@ -296,9 +324,10 @@ class _SidebarState extends State<Sidebar> {
       builder: (context, walletProvider, child) {
         final currentWallet = walletProvider.currentWallet;
         final addressName = currentWallet?.addressNames[address];
-        final displayName = addressName ?? _getDefaultAddressName(walletProvider, address);
+        final displayName =
+            addressName ?? _getDefaultAddressName(walletProvider, address);
         final isSelected = walletProvider.selectedAddress == address;
-        
+
         return GestureDetector(
           onTap: () {
             walletProvider.setSelectedAddress(address);
@@ -307,7 +336,9 @@ class _SidebarState extends State<Sidebar> {
             margin: const EdgeInsets.only(left: 36, right: 12, bottom: 8),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: isSelected ? const Color(0xFF2A2D3A) : const Color(0xFF1A1B23),
+              color: isSelected
+                  ? const Color(0xFF2A2D3A)
+                  : const Color(0xFF1A1B23),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
                 color: isSelected ? const Color(0xFF4A90E2) : Colors.white10,
@@ -394,7 +425,7 @@ class _SidebarState extends State<Sidebar> {
     }
     return address;
   }
-  
+
   IconData _getNetworkIcon(String networkId) {
     switch (networkId) {
       case 'ethereum':

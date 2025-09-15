@@ -10,6 +10,7 @@ import 'screens/send_screen.dart';
 import 'screens/receive_screen.dart';
 import 'screens/swap_screen.dart';
 import 'screens/account_detail_screen.dart';
+import 'screens/solana_fee_estimator_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -44,7 +45,8 @@ class MyApp extends StatelessWidget {
                 brightness: Brightness.dark,
               ),
             ),
-            themeMode: themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+            themeMode:
+                themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
             initialRoute: '/',
             routes: {
               '/': (context) => const WalletInitScreen(),
@@ -56,6 +58,8 @@ class MyApp extends StatelessWidget {
               '/receive': (context) => const ReceiveScreen(),
               '/swap': (context) => const SwapScreen(),
               '/account_detail': (context) => const AccountDetailScreen(),
+              '/solana-fee-estimator': (context) =>
+                  const SolanaFeeEstimatorScreen(),
             },
           );
         },
@@ -83,15 +87,16 @@ class _WalletInitScreenState extends State<WalletInitScreen> {
 
   Future<void> _initializeApp() async {
     try {
-      final walletProvider = Provider.of<WalletProvider>(context, listen: false);
-      
+      final walletProvider =
+          Provider.of<WalletProvider>(context, listen: false);
+
       // Check if there are stored wallets
       _hasStoredWallet = await walletProvider.hasStoredWallets();
-      
+
       setState(() {
         _isInitializing = false;
       });
-      
+
       // Navigate based on wallet existence
       if (mounted) {
         if (_hasStoredWallet) {
@@ -104,7 +109,7 @@ class _WalletInitScreenState extends State<WalletInitScreen> {
       setState(() {
         _isInitializing = false;
       });
-      
+
       if (mounted) {
         Navigator.of(context).pushReplacementNamed('/welcome');
       }
@@ -134,13 +139,13 @@ class _WalletInitScreenState extends State<WalletInitScreen> {
               ),
             ),
             const SizedBox(height: 32),
-            
+
             // Loading indicator
             const CircularProgressIndicator(
               valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6366F1)),
             ),
             const SizedBox(height: 16),
-            
+
             // Loading text
             Text(
               _isInitializing ? '正在初始化钱包...' : '正在加载...',
