@@ -11,6 +11,7 @@ import 'screens/receive_screen.dart';
 import 'screens/swap_screen.dart';
 import 'screens/account_detail_screen.dart';
 import 'screens/solana_fee_estimator_screen.dart';
+import 'screens/settings_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -60,6 +61,7 @@ class MyApp extends StatelessWidget {
               '/account_detail': (context) => const AccountDetailScreen(),
               '/solana-fee-estimator': (context) =>
                   const SolanaFeeEstimatorScreen(),
+              '/settings': (context) => const SettingsScreen(),
             },
           );
         },

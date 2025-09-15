@@ -9,6 +9,7 @@ import 'package:flutter_wallet/services/mnemonic_service.dart';
 import 'package:ed25519_hd_key/ed25519_hd_key.dart';
 import 'package:http/http.dart' as http;
 
+import 'package:flutter_wallet/constants/derivation_paths.dart';
 import 'package:flutter_wallet/models/solana_transaction.dart';
 
 /// 计算预算指令类型
@@ -45,7 +46,12 @@ class SolanaWalletService implements WalletService {
 
   @override
   Future<String> getAddress(String mnemonic) async {
-    final keypair = await Ed25519HDKeyPair.fromMnemonic(mnemonic);
+    // 使用与AddressService相同的标准BIP44路径
+    final seed = MnemonicService.mnemonicToSeed(mnemonic);
+    const path = DerivationPaths.solana; // 使用索引0作为默认地址
+    final derivedKey = await ED25519_HD_KEY.derivePath(path, seed);
+    final keypair =
+        await Ed25519HDKeyPair.fromPrivateKeyBytes(privateKey: derivedKey.key);
     return keypair.publicKey.toBase58();
   }
 
@@ -58,7 +64,13 @@ class SolanaWalletService implements WalletService {
   @override
   Future<String> sendTransaction(
       String mnemonic, String toAddress, double amount) async {
-    final fromKeypair = await Ed25519HDKeyPair.fromMnemonic(mnemonic);
+    // 使用与getAddress相同的方法生成密钥对
+    final seed = MnemonicService.mnemonicToSeed(mnemonic);
+    //path := "m/44'/501'/0'/0'"
+    const path = DerivationPaths.solana;
+    final derivedKey = await ED25519_HD_KEY.derivePath(path, seed);
+    final fromKeypair =
+        await Ed25519HDKeyPair.fromPrivateKeyBytes(privateKey: derivedKey.key);
     final lamports = (amount * lamportsPerSol).toInt();
 
     final instruction = SystemInstruction.transfer(
@@ -104,7 +116,7 @@ class SolanaWalletService implements WalletService {
     try {
       // 使用与AddressService相同的方法生成密钥对
       final seed = MnemonicService.mnemonicToSeed(mnemonic);
-      const path = "m/44'/501'/0'";
+      const path = DerivationPaths.solana;
       final derivedKey = await ED25519_HD_KEY.derivePath(path, seed);
       final fromKeypair = await Ed25519HDKeyPair.fromPrivateKeyBytes(
           privateKey: derivedKey.key);
@@ -400,7 +412,7 @@ class SolanaWalletService implements WalletService {
 
       // 使用与AddressService相同的方法生成密钥对
       final seed = MnemonicService.mnemonicToSeed(mnemonic);
-      const path = "m/44'/501'/0'"; // 使用索引0，与AddressService相同
+      const path = DerivationPaths.solana; // 使用索引0，与AddressService相同
       final derivedKey = await ED25519_HD_KEY.derivePath(path, seed);
 
       // 从派生的私钥创建Ed25519HDKeyPair

@@ -4,6 +4,7 @@ import 'package:bip39/bip39.dart' as bip39;
 import 'package:bip32/bip32.dart' as bip32;
 import 'package:ed25519_hd_key/ed25519_hd_key.dart';
 import 'mnemonic_service.dart';
+import '../constants/derivation_paths.dart';
 
 class PrivateKeyService {
   /// Generate private key for different blockchain networks
@@ -46,7 +47,7 @@ class PrivateKeyService {
       
       // 2. Derive key using BIP32 (secp256k1)
       final root = bip32.BIP32.fromSeed(seed);
-      final child = root.derivePath("m/44'/60'/0'/0/$index");
+      final child = root.derivePath(DerivationPaths.ethereumWithIndex(index));
       
       // 3. Get private key bytes
       final privateKeyBytes = child.privateKey;
@@ -69,7 +70,7 @@ class PrivateKeyService {
       
       // 2. Derive Bitcoin key using BIP32 (secp256k1)
       final root = bip32.BIP32.fromSeed(seed);
-      final child = root.derivePath("m/44'/0'/0'/0/$index");
+      final child = root.derivePath(DerivationPaths.bitcoinWithIndex(index));
       
       // 3. Get private key bytes
       final privateKeyBytes = child.privateKey;
@@ -102,10 +103,10 @@ class PrivateKeyService {
         throw ArgumentError('Invalid mnemonic phrase for Solana private key generation');
       }
       
-      final seed = MnemonicService.mnemonicToSeed(mnemonic);
+      final seed = bip39.mnemonicToSeed(mnemonic);
       
       // For Solana, use hardened derivation path
-      final path = "m/44'/501'/$index'";
+      final path = DerivationPaths.solanaWithIndex(index);
       final derivedKey = await ED25519_HD_KEY.derivePath(path, seed);
       
       // Get the private key bytes
