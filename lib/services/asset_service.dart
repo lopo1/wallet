@@ -165,7 +165,7 @@ class AssetService {
   List<Asset> getAllAssets() {
     return _getDefaultAssets();
   }
-  
+
   // 获取所有资产（使用真实余额）
   List<Asset> getAllAssetsWithBalance(Function(String) getBalance) {
     return _getAssetsWithBalance(getBalance);
@@ -177,9 +177,10 @@ class AssetService {
         .where((asset) => asset.network == networkId)
         .toList();
   }
-  
+
   // 根据网络获取资产（使用真实余额）
-  List<Asset> getAssetsByNetworkWithBalance(String networkId, Function(String) getBalance) {
+  List<Asset> getAssetsByNetworkWithBalance(
+      String networkId, Function(String) getBalance) {
     return _getAssetsWithBalance(getBalance)
         .where((asset) => asset.network == networkId)
         .toList();
@@ -190,7 +191,7 @@ class AssetService {
     return _getDefaultAssets()
         .fold(0.0, (sum, asset) => sum + asset.totalValue);
   }
-  
+
   // 获取总投资组合价值（使用真实余额）
   double getTotalPortfolioValueWithBalance(Function(String) getBalance) {
     return _getAssetsWithBalance(getBalance)
@@ -202,9 +203,10 @@ class AssetService {
     return getAssetsByNetwork(networkId)
         .fold(0.0, (sum, asset) => sum + asset.totalValue);
   }
-  
+
   // 获取特定网络的总价值（使用真实余额）
-  double getNetworkTotalValueWithBalance(String networkId, Function(String) getBalance) {
+  double getNetworkTotalValueWithBalance(
+      String networkId, Function(String) getBalance) {
     return getAssetsByNetworkWithBalance(networkId, getBalance)
         .fold(0.0, (sum, asset) => sum + asset.totalValue);
   }

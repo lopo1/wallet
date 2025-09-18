@@ -67,9 +67,10 @@ class WalletProvider extends ChangeNotifier {
         name: 'Ethereum',
         symbol: 'ETH',
         chainId: 1,
-        rpcUrl: 'https://mainnet.infura.io/v3/YOUR_PROJECT_ID',
+        rpcUrl:
+            'https://ethereum.blockpi.network/v1/rpc/bb98a6bd2a003a01b46b479224a24db69caed026',
         rpcUrls: [
-          'https://mainnet.infura.io/v3/YOUR_PROJECT_ID',
+          'https://ethereum.blockpi.network/v1/rpc/bb98a6bd2a003a01b46b479224a24db69caed026',
           'https://eth-mainnet.alchemyapi.io/v2/YOUR_API_KEY',
           'https://rpc.ankr.com/eth',
           'https://ethereum.publicnode.com',
@@ -126,7 +127,8 @@ class WalletProvider extends ChangeNotifier {
         name: 'Solana',
         symbol: 'SOL',
         chainId: 101, // Solana mainnet
-        rpcUrl: 'https://api.zan.top/node/v1/solana/devnet/b49c38feccc54a49a318db163d336c60',
+        rpcUrl:
+            'https://api.zan.top/node/v1/solana/devnet/b49c38feccc54a49a318db163d336c60',
         rpcUrls: [
           'https://api.zan.top/node/v1/solana/devnet/b49c38feccc54a49a318db163d336c60',
           'https://api.devnet.solana.com',
@@ -821,18 +823,24 @@ class WalletProvider extends ChangeNotifier {
       final effectiveRpcUrl = rpcUrl ?? network.rpcUrl;
       final client = web3.Web3Client(effectiveRpcUrl, http.Client());
 
-      // 获取当前钱包地址
-      if (_selectedAddress == null) {
+      // 获取以太坊网络的地址
+      final ethereumAddress =
+          _currentWallet?.addresses[networkId]?.isNotEmpty == true
+              ? _currentWallet!.addresses[networkId]!.first
+              : null;
+
+      if (ethereumAddress == null) {
+        debugPrint('以太坊地址不存在');
         return 0.0;
       }
 
       // 打印请求数据
       debugPrint('=== 以太坊余额查询请求 ===');
       debugPrint('RPC URL: $effectiveRpcUrl');
-      debugPrint('钱包地址: $_selectedAddress');
+      debugPrint('钱包地址: $ethereumAddress');
       debugPrint('请求方法: eth_getBalance');
 
-      final address = web3.EthereumAddress.fromHex(_selectedAddress!);
+      final address = web3.EthereumAddress.fromHex(ethereumAddress);
       final balance = await client.getBalance(address);
 
       // 将Wei转换为ETH
@@ -861,18 +869,24 @@ class WalletProvider extends ChangeNotifier {
       final effectiveRpcUrl = rpcUrl ?? network.rpcUrl;
       final client = web3.Web3Client(effectiveRpcUrl, http.Client());
 
-      // 获取当前钱包地址
-      if (_selectedAddress == null) {
+      // 获取Polygon网络的地址
+      final polygonAddress =
+          _currentWallet?.addresses[networkId]?.isNotEmpty == true
+              ? _currentWallet!.addresses[networkId]!.first
+              : null;
+
+      if (polygonAddress == null) {
+        debugPrint('Polygon地址不存在');
         return 0.0;
       }
 
       // 打印请求数据
       debugPrint('=== Polygon余额查询请求 ===');
       debugPrint('RPC URL: $effectiveRpcUrl');
-      debugPrint('钱包地址: $_selectedAddress');
+      debugPrint('钱包地址: $polygonAddress');
       debugPrint('请求方法: eth_getBalance');
 
-      final address = web3.EthereumAddress.fromHex(_selectedAddress!);
+      final address = web3.EthereumAddress.fromHex(polygonAddress);
       final balance = await client.getBalance(address);
 
       // 将Wei转换为MATIC
@@ -901,18 +915,24 @@ class WalletProvider extends ChangeNotifier {
       final effectiveRpcUrl = rpcUrl ?? network.rpcUrl;
       final client = web3.Web3Client(effectiveRpcUrl, http.Client());
 
-      // 获取当前钱包地址
-      if (_selectedAddress == null) {
+      // 获取BSC网络的地址
+      final bscAddress =
+          _currentWallet?.addresses[networkId]?.isNotEmpty == true
+              ? _currentWallet!.addresses[networkId]!.first
+              : null;
+
+      if (bscAddress == null) {
+        debugPrint('BSC地址不存在');
         return 0.0;
       }
 
       // 打印请求数据
       debugPrint('=== BSC余额查询请求 ===');
       debugPrint('RPC URL: $effectiveRpcUrl');
-      debugPrint('钱包地址: $_selectedAddress');
+      debugPrint('钱包地址: $bscAddress');
       debugPrint('请求方法: eth_getBalance');
 
-      final address = web3.EthereumAddress.fromHex(_selectedAddress!);
+      final address = web3.EthereumAddress.fromHex(bscAddress);
       final balance = await client.getBalance(address);
 
       // 将Wei转换为BNB
@@ -937,19 +957,25 @@ class WalletProvider extends ChangeNotifier {
           ? _currentNetwork!
           : _supportedNetworks.firstWhere((n) => n.id == networkId);
 
-      // 获取当前钱包地址
-      if (_selectedAddress == null) {
+      // 获取比特币网络的地址
+      final bitcoinAddress =
+          _currentWallet?.addresses[networkId]?.isNotEmpty == true
+              ? _currentWallet!.addresses[networkId]!.first
+              : null;
+
+      if (bitcoinAddress == null) {
+        debugPrint('比特币地址不存在');
         return 0.0;
       }
 
       // 使用传入的rpcUrl或网络默认的rpcUrl
       final effectiveRpcUrl = rpcUrl ?? network.rpcUrl;
-      final apiUrl = '$effectiveRpcUrl/address/${_selectedAddress!}';
+      final apiUrl = '$effectiveRpcUrl/address/$bitcoinAddress';
 
       // 打印请求数据
       debugPrint('=== 比特币余额查询请求 ===');
       debugPrint('API URL: $apiUrl');
-      debugPrint('钱包地址: $_selectedAddress');
+      debugPrint('钱包地址: $bitcoinAddress');
       debugPrint('请求方法: GET');
       debugPrint('请求头: Content-Type: application/json');
 
@@ -1000,8 +1026,14 @@ class WalletProvider extends ChangeNotifier {
       // 使用传入的rpcUrl或网络默认的rpcUrl
       final effectiveRpcUrl = rpcUrl ?? network.rpcUrl;
 
-      // 获取当前钱包地址
-      if (_selectedAddress == null) {
+      // 获取Solana网络的地址
+      final solanaAddress =
+          _currentWallet?.addresses[networkId]?.isNotEmpty == true
+              ? _currentWallet!.addresses[networkId]!.first
+              : null;
+
+      if (solanaAddress == null) {
+        debugPrint('Solana地址不存在');
         return 0.0;
       }
 
@@ -1010,9 +1042,9 @@ class WalletProvider extends ChangeNotifier {
 
       debugPrint('=== Solana余额查询请求 ===');
       debugPrint('RPC URL: $effectiveRpcUrl');
-      debugPrint('钱包地址: $_selectedAddress');
+      debugPrint('钱包地址: $solanaAddress');
 
-      final balance = await _solanaWalletService!.getBalance(_selectedAddress!);
+      final balance = await _solanaWalletService!.getBalance(solanaAddress);
 
       debugPrint('响应余额: $balance SOL');
       debugPrint('========================');
@@ -1342,10 +1374,12 @@ class WalletProvider extends ChangeNotifier {
       // 从助记词生成私钥 - 使用正确的BIP44派生路径
       final seed = bip39.mnemonicToSeed(mnemonic);
       final root = bip32.BIP32.fromSeed(seed);
-      
+
       // 获取当前选中地址的索引
       int addressIndex = 0;
-      if (_selectedAddress != null && _currentWallet != null && _currentNetwork != null) {
+      if (_selectedAddress != null &&
+          _currentWallet != null &&
+          _currentNetwork != null) {
         final addressList = _currentWallet!.addresses[_currentNetwork!.id];
         if (addressList != null) {
           final index = addressList.indexOf(_selectedAddress!);
@@ -1354,7 +1388,7 @@ class WalletProvider extends ChangeNotifier {
           }
         }
       }
-      
+
       // 使用公共的派生路径和对应的地址索引
       final derivationPath = DerivationPaths.ethereumWithIndex(addressIndex);
       final child = root.derivePath(derivationPath);
@@ -1364,14 +1398,14 @@ class WalletProvider extends ChangeNotifier {
       }
       final privateKey = HEX.encode(privateKeyBytes);
       final credentials = web3.EthPrivateKey.fromHex(privateKey);
-      
+
       debugPrint('使用派生路径: $derivationPath');
       debugPrint('地址索引: $addressIndex');
       debugPrint('发送地址: ${credentials.address.hex}');
 
       // 获取网络信息
       final network = _supportedNetworks.firstWhere((n) => n.id == networkId);
-      
+
       // 从RPC获取链ID而不是使用预设值
       final chainId = await client.getChainId();
       debugPrint('从RPC获取的链ID: $chainId');
@@ -1408,7 +1442,7 @@ class WalletProvider extends ChangeNotifier {
           gasPrice: gasPrice,
         );
         debugPrint('估算Gas限制: $gasLimit');
-        
+
         // 为安全起见，增加10%的gas缓冲
         gasLimit = (gasLimit * BigInt.from(110)) ~/ BigInt.from(100);
         debugPrint('添加缓冲后的Gas限制: $gasLimit');
@@ -1421,14 +1455,18 @@ class WalletProvider extends ChangeNotifier {
       // 计算总费用
       final totalFee = gasPrice.getInWei * BigInt.from(gasLimit.toInt());
       final totalCost = weiAmount.getInWei + totalFee;
-      debugPrint('Gas费用: ${web3.EtherAmount.fromBigInt(web3.EtherUnit.wei, totalFee).getValueInUnit(web3.EtherUnit.ether)} ETH');
-      debugPrint('总成本: ${web3.EtherAmount.fromBigInt(web3.EtherUnit.wei, totalCost).getValueInUnit(web3.EtherUnit.ether)} ETH');
+      debugPrint(
+          'Gas费用: ${web3.EtherAmount.fromBigInt(web3.EtherUnit.wei, totalFee).getValueInUnit(web3.EtherUnit.ether)} ETH');
+      debugPrint(
+          '总成本: ${web3.EtherAmount.fromBigInt(web3.EtherUnit.wei, totalCost).getValueInUnit(web3.EtherUnit.ether)} ETH');
 
       // 检查余额是否足够
       if (balance.getInWei < totalCost) {
         final shortfall = totalCost - balance.getInWei;
-        debugPrint('余额不足！缺少: ${web3.EtherAmount.fromBigInt(web3.EtherUnit.wei, shortfall).getValueInUnit(web3.EtherUnit.ether)} ETH');
-        throw Exception('余额不足，需要额外 ${web3.EtherAmount.fromBigInt(web3.EtherUnit.wei, shortfall).getValueInUnit(web3.EtherUnit.ether)} ETH');
+        debugPrint(
+            '余额不足！缺少: ${web3.EtherAmount.fromBigInt(web3.EtherUnit.wei, shortfall).getValueInUnit(web3.EtherUnit.ether)} ETH');
+        throw Exception(
+            '余额不足，需要额外 ${web3.EtherAmount.fromBigInt(web3.EtherUnit.wei, shortfall).getValueInUnit(web3.EtherUnit.ether)} ETH');
       }
 
       // 发送交易
@@ -1687,13 +1725,15 @@ class WalletProvider extends ChangeNotifier {
   }
 
   /// 获取网络的实时费用估算
-  Future<double> getNetworkFeeEstimate(String networkId, {String? rpcUrl, double? amount}) async {
+  Future<double> getNetworkFeeEstimate(String networkId,
+      {String? rpcUrl, double? amount}) async {
     try {
       switch (networkId) {
         case NetworkConstants.ethereumNetworkId:
         case NetworkConstants.bscNetworkId:
         case NetworkConstants.polygonNetworkId:
-          return await _getEVMFeeEstimate(networkId, rpcUrl: rpcUrl, amount: amount);
+          return await _getEVMFeeEstimate(networkId,
+              rpcUrl: rpcUrl, amount: amount);
         case NetworkConstants.solanaNetworkId:
           return await _getSolanaFeeEstimate(amount: amount);
         case NetworkConstants.bitcoinNetworkId:
@@ -1720,7 +1760,8 @@ class WalletProvider extends ChangeNotifier {
   }
 
   /// 获取EVM网络的费用估算（以太坊、BSC、Polygon）
-  Future<double> _getEVMFeeEstimate(String networkId, {String? rpcUrl, double? amount}) async {
+  Future<double> _getEVMFeeEstimate(String networkId,
+      {String? rpcUrl, double? amount}) async {
     try {
       // 获取网络信息
       final network = _supportedNetworks.firstWhere((n) => n.id == networkId);
@@ -1729,28 +1770,29 @@ class WalletProvider extends ChangeNotifier {
 
       // 获取当前gas价格
       final gasPrice = await client.getGasPrice();
-      
+
       // 使用标准转账的gas限制
       const standardGasLimit = NetworkConstants.evmStandardTransferGasLimit;
-      
+
       // 如果提供了金额，可以进行更精确的gas估算
       BigInt gasLimit = BigInt.from(standardGasLimit);
-      
+
       if (amount != null && _selectedAddress != null) {
         try {
           final weiAmount = web3.EtherAmount.fromBigInt(
             web3.EtherUnit.wei,
             BigInt.from((amount * 1e18).toInt()),
           );
-          
+
           // 尝试估算实际的gas限制
           gasLimit = await client.estimateGas(
             sender: web3.EthereumAddress.fromHex(_selectedAddress!),
-            to: web3.EthereumAddress.fromHex('0x0000000000000000000000000000000000000000'), // 占位地址
+            to: web3.EthereumAddress.fromHex(
+                '0x0000000000000000000000000000000000000000'), // 占位地址
             value: weiAmount,
             gasPrice: gasPrice,
           );
-          
+
           // 添加10%缓冲
           gasLimit = (gasLimit * BigInt.from(110)) ~/ BigInt.from(100);
         } catch (e) {
@@ -1758,15 +1800,17 @@ class WalletProvider extends ChangeNotifier {
           gasLimit = BigInt.from(standardGasLimit);
         }
       }
-      
+
       // 计算总费用：gasPrice * gasLimit
       final totalFee = gasPrice.getInWei * gasLimit;
-      final feeInEther = web3.EtherAmount.fromBigInt(web3.EtherUnit.wei, totalFee)
-          .getValueInUnit(web3.EtherUnit.ether);
-      
+      final feeInEther =
+          web3.EtherAmount.fromBigInt(web3.EtherUnit.wei, totalFee)
+              .getValueInUnit(web3.EtherUnit.ether);
+
       client.dispose();
-      debugPrint('$networkId 网络费用估算: $feeInEther ETH (gasPrice: ${gasPrice.getInWei} wei, gasLimit: $gasLimit)');
-      
+      debugPrint(
+          '$networkId 网络费用估算: $feeInEther ETH (gasPrice: ${gasPrice.getInWei} wei, gasLimit: $gasLimit)');
+
       return feeInEther;
     } catch (e) {
       debugPrint('获取 $networkId 费用估算失败: $e');
@@ -1780,14 +1824,15 @@ class WalletProvider extends ChangeNotifier {
       if (_solanaWalletService == null) {
         return NetworkConstants.solanaBaseFee; // 默认Solana基础费用
       }
-      
+
       // 获取当前网络状态和费用信息
       final networkStatus = await _solanaWalletService!.getNetworkStatus();
       final baseFee = networkStatus['baseFee'] ?? 5000; // 微lamports
-      
+
       // 转换为SOL（使用网络常量）
-      final feeInSol = NetworkConstants.lamportsToSol(baseFee ~/ 1000); // 微lamports转lamports再转SOL
-      
+      final feeInSol = NetworkConstants.lamportsToSol(
+          baseFee ~/ 1000); // 微lamports转lamports再转SOL
+
       debugPrint('Solana 网络费用估算: $feeInSol SOL (基础费用: $baseFee 微lamports)');
       return feeInSol;
     } catch (e) {
@@ -1801,17 +1846,17 @@ class WalletProvider extends ChangeNotifier {
     try {
       // 比特币费用估算需要调用比特币RPC API
       // 这里提供简化实现，实际应用中需要调用真实的比特币节点
-      
+
       // 模拟获取当前网络费率（satoshi/byte）
       final feeRate = 10; // 假设当前费率为10 sat/byte
       final txSize = 250; // 假设交易大小为250字节
-      
+
       // 计算费用（satoshi）
       final feeInSatoshi = feeRate * txSize;
-      
+
       // 转换为BTC（使用网络常量）
       final feeInBtc = NetworkConstants.satoshisToBtc(feeInSatoshi);
-      
+
       debugPrint('比特币网络费用估算: $feeInBtc BTC ($feeInSatoshi satoshi)');
       return feeInBtc;
     } catch (e) {

@@ -16,2222 +16,237 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   bool _isSidebarCollapsed = false;
+  bool _isLoadingBalances = false;
+  Map<String, double> _realBalances = {};
+  double _totalPortfolioValue = 0.0;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  void _showWalletMenu() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (BuildContext context) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: Color(0xFF1A1B23),
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(20),
-              topRight: Radius.circular(20),
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Handle bar
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(top: 12, bottom: 20),
-                decoration: BoxDecoration(
-                  color: Colors.white30,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              // Menu items
-              Flexible(
-                child: SingleChildScrollView(
-                  child: Consumer<WalletProvider>(
-                    builder: (context, walletProvider, child) {
-                      return Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Current wallet info
-                          if (walletProvider.currentWallet != null)
-                            Container(
-                              margin: const EdgeInsets.symmetric(
-                                  horizontal: 20, vertical: 8),
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: Colors.white10,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Row(
-                                children: [
-                                  const CircleAvatar(
-                                    radius: 20,
-                                    backgroundColor: Colors.red,
-                                    child: Icon(Icons.account_balance_wallet,
-                                        color: Colors.white, size: 20),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          walletProvider.currentWallet!.name,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          _getShortAddress(walletProvider),
-                                          style: const TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 12,
-                                            fontFamily: 'monospace',
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          const SizedBox(height: 8),
-                          // Menu options
-                          _buildMenuOption(
-                            icon: Icons.swap_horiz,
-                            title: '切换钱包',
-                            onTap: () {
-                              Navigator.pop(context);
-                              _showWalletSwitcher();
-                            },
-                          ),
-                          _buildMenuOption(
-                            icon: Icons.download,
-                            title: '导入助记词',
-                            onTap: () {
-                              Navigator.pop(context);
-                              Navigator.pushNamed(context, '/create-wallet',
-                                  arguments: {'mode': 'import'});
-                            },
-                          ),
-                          _buildMenuOption(
-                            icon: Icons.add,
-                            title: '创建新钱包',
-                            onTap: () {
-                              Navigator.pop(context);
-                              Navigator.pushNamed(context, '/create-wallet');
-                            },
-                          ),
-                          _buildMenuOption(
-                            icon: Icons.upload,
-                            title: '导出助记词',
-                            onTap: () {
-                              Navigator.pop(context);
-                              _showExportMnemonic();
-                            },
-                            isDestructive: true,
-                          ),
-                          _buildMenuOption(
-                            icon: Icons.settings,
-                            title: '设置',
-                            onTap: () {
-                              Navigator.pop(context);
-                              Navigator.pushNamed(context, '/settings');
-                            },
-                          ),
-                          const SizedBox(height: 20),
-                        ],
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
+  @override
+  void initState() {
+    super.initState();
+    _loadRealBalances();
   }
 
-  String _getShortAddress(WalletProvider walletProvider) {
-    final address = walletProvider.getCurrentNetworkAddress();
-    if (address != null && address.length > 10) {
-      return '${address.substring(0, 6)}...${address.substring(address.length - 4)}';
-    }
-    return '未生成地址';
-  }
+  /// 加载真实余额数据
+  Future<void> _loadRealBalances() async {
+    setState(() {
+      _isLoadingBalances = true;
+    });
 
-  Widget _buildMenuOption({
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-    bool isDestructive = false,
-  }) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        leading: Icon(
-          icon,
-          color: isDestructive ? Colors.red : Colors.white70,
-        ),
-        title: Text(
-          title,
-          style: TextStyle(
-            color: isDestructive ? Colors.red : Colors.white,
-            fontSize: 16,
-          ),
-        ),
-        onTap: onTap,
-      ),
-    );
-  }
-
-  Widget _buildAccountOption({
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-  }) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        leading: Icon(
-          icon,
-          color: Colors.white70,
-        ),
-        title: Text(
-          title,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-          ),
-        ),
-        onTap: onTap,
-      ),
-    );
-  }
-
-  void _showNetworkRpcConfig() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (BuildContext context) {
-        return DefaultTabController(
-          length: 2,
-          child: Container(
-            height: MediaQuery.of(context).size.height * 0.8,
-            decoration: const BoxDecoration(
-              color: Color(0xFF1A1B23),
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20),
-              ),
-            ),
-            child: Column(
-              children: [
-                // Handle bar
-                Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(top: 12, bottom: 20),
-                  decoration: BoxDecoration(
-                    color: Colors.white30,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                // Title
-                const Text(
-                  '设置',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                // Tab bar
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 20),
-                  decoration: BoxDecoration(
-                    color: Colors.white10,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: TabBar(
-                    indicator: BoxDecoration(
-                      color: const Color(0xFF6366F1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    indicatorSize: TabBarIndicatorSize.tab,
-                    dividerColor: Colors.transparent,
-                    labelColor: Colors.white,
-                    unselectedLabelColor: Colors.white70,
-                    labelStyle: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    tabs: const [
-                      Tab(text: 'RPC 配置'),
-                      Tab(text: '账户管理'),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-                // Tab content
-                Expanded(
-                  child: TabBarView(
-                    children: [
-                      // RPC Configuration Tab
-                      _buildRpcConfigTab(),
-                      // Account Management Tab
-                      _buildAccountManagementTab(),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildRpcConfigTab() {
-    return Consumer<WalletProvider>(
-      builder: (context, walletProvider, child) {
-        final currentNetwork = walletProvider.currentNetwork;
-        if (currentNetwork == null) {
-          return const Center(
-            child: Text(
-              '请先选择网络',
-              style: TextStyle(color: Colors.white70),
-            ),
-          );
-        }
-
-        final rpcUrls = walletProvider.getNetworkRpcUrls(currentNetwork.id);
-
-        return Column(
-          children: [
-            // Current network info
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 20),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white10,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: Color(currentNetwork.color),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Text(
-                        currentNetwork.symbol.substring(0, 1),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          currentNetwork.name,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Text(
-                          'Chain ID: ${currentNetwork.chainId}',
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            // RPC URLs list
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 20),
-                    child: Text(
-                      'RPC 地址列表',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: rpcUrls.length,
-                      itemBuilder: (context, index) {
-                        final rpcUrl = rpcUrls[index];
-                        final isCurrentRpc = rpcUrl == currentNetwork.rpcUrl;
-
-                        return Container(
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isCurrentRpc
-                                ? Colors.green.withOpacity(0.2)
-                                : Colors.white10,
-                            borderRadius: BorderRadius.circular(8),
-                            border: isCurrentRpc
-                                ? Border.all(color: Colors.green, width: 1)
-                                : null,
-                          ),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            title: Text(
-                              rpcUrl,
-                              style: TextStyle(
-                                color:
-                                    isCurrentRpc ? Colors.green : Colors.white,
-                                fontSize: 14,
-                                fontFamily: 'monospace',
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (isCurrentRpc)
-                                  const Icon(
-                                    Icons.check_circle,
-                                    color: Colors.green,
-                                    size: 20,
-                                  ),
-                                if (!isCurrentRpc)
-                                  IconButton(
-                                    onPressed: () {
-                                      walletProvider.updateNetworkRpcUrl(
-                                        currentNetwork.id,
-                                        rpcUrl,
-                                      );
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(
-                                          content: Text('已切换到: $rpcUrl'),
-                                          backgroundColor: Colors.green,
-                                        ),
-                                      );
-                                    },
-                                    icon: const Icon(
-                                      Icons.radio_button_unchecked,
-                                      color: Colors.white70,
-                                      size: 20,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            onTap: () {
-                              if (!isCurrentRpc) {
-                                walletProvider.updateNetworkRpcUrl(
-                                  currentNetwork.id,
-                                  rpcUrl,
-                                );
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('已切换到: $rpcUrl'),
-                                    backgroundColor: Colors.green,
-                                  ),
-                                );
-                              }
-                            },
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  // Add new RPC button
-                  Container(
-                    margin: const EdgeInsets.all(20),
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        _showAddRpcDialog(currentNetwork.id);
-                      },
-                      icon: const Icon(Icons.add),
-                      label: const Text('添加新 RPC 地址'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF6366F1),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildAccountManagementTab() {
-    return SingleChildScrollView(
-      child: Consumer<WalletProvider>(
-        builder: (context, walletProvider, child) {
-          return Column(
-            children: [
-              const SizedBox(height: 10),
-              _buildAccountOption(
-                icon: Icons.account_circle,
-                title: '查看当前账户',
-                onTap: () {
-                  Navigator.pop(context);
-                  _showCurrentAccount();
-                },
-              ),
-              _buildAccountOption(
-                icon: Icons.add_circle_outline,
-                title: '添加新地址',
-                onTap: () {
-                  Navigator.pop(context);
-                  _showAddNewAddress();
-                },
-              ),
-              _buildAccountOption(
-                icon: Icons.key,
-                title: '导入私钥',
-                onTap: () {
-                  Navigator.pop(context);
-                  _showImportPrivateKey();
-                },
-              ),
-              _buildAccountOption(
-                icon: Icons.swap_horiz,
-                title: '切换地址',
-                onTap: () {
-                  Navigator.pop(context);
-                  _showSwitchAddress();
-                },
-              ),
-              _buildAccountOption(
-                icon: Icons.wallet,
-                title: '钱包管理',
-                onTap: () {
-                  Navigator.pop(context);
-                  _showWalletSwitcher();
-                },
-              ),
-              _buildAccountOption(
-                icon: Icons.security,
-                title: '导出助记词',
-                onTap: () {
-                  Navigator.pop(context);
-                  _showExportMnemonic();
-                },
-              ),
-              const SizedBox(height: 20),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  void _showAddRpcDialog(String networkId) {
-    final TextEditingController rpcController = TextEditingController();
-    final TextEditingController nameController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF1A1B23),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Text(
-            '添加新 RPC 地址',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'RPC URL',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 14,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: rpcController,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: 'https://...',
-                  hintStyle: const TextStyle(color: Colors.white38),
-                  filled: true,
-                  fillColor: Colors.white10,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide.none,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                '名称 (可选)',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 14,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: nameController,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: '自定义名称',
-                  hintStyle: const TextStyle(color: Colors.white38),
-                  filled: true,
-                  fillColor: Colors.white10,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide.none,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text(
-                '取消',
-                style: TextStyle(color: Colors.white70),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final rpcUrl = rpcController.text.trim();
-                if (rpcUrl.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('请输入 RPC URL'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                  return;
-                }
-
-                // Validate URL format
-                final uri = Uri.tryParse(rpcUrl);
-                if (uri == null || !uri.hasAbsolutePath) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('请输入有效的 URL 格式'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                  return;
-                }
-
-                try {
-                  final walletProvider =
-                      Provider.of<WalletProvider>(context, listen: false);
-
-                  // Test RPC connection
-                  final isValid =
-                      await walletProvider.testRpcConnection(rpcUrl);
-                  if (!isValid) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('RPC 连接测试失败，请检查 URL 是否正确'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
-                    return;
-                  }
-
-                  // Add custom RPC URL
-                  walletProvider.addCustomRpcUrl(networkId, rpcUrl);
-
-                  if (mounted) {
-                    Navigator.of(context).pop();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('已添加 RPC: $rpcUrl'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                  }
-                } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('添加失败: $e'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6366F1),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text('添加'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _showAccountManagement() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (BuildContext context) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: Color(0xFF1A1B23),
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(20),
-              topRight: Radius.circular(20),
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Handle bar
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(top: 12, bottom: 20),
-                decoration: BoxDecoration(
-                  color: Colors.white30,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              // Title
-              const Text(
-                '账户管理',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 20),
-              // Account management options
-              Flexible(
-                child: SingleChildScrollView(
-                  child: Consumer<WalletProvider>(
-                    builder: (context, walletProvider, child) {
-                      return Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _buildAccountOption(
-                            icon: Icons.account_circle,
-                            title: '查看当前账户',
-                            onTap: () {
-                              Navigator.pop(context);
-                              _showCurrentAccount();
-                            },
-                          ),
-                          _buildAccountOption(
-                            icon: Icons.add_circle_outline,
-                            title: '添加新地址',
-                            onTap: () {
-                              Navigator.pop(context);
-                              _showAddNewAddress();
-                            },
-                          ),
-                          _buildAccountOption(
-                            icon: Icons.key,
-                            title: '导入私钥',
-                            onTap: () {
-                              Navigator.pop(context);
-                              _showImportPrivateKey();
-                            },
-                          ),
-                          _buildAccountOption(
-                            icon: Icons.swap_horiz,
-                            title: '切换地址',
-                            onTap: () {
-                              Navigator.pop(context);
-                              _showSwitchAddress();
-                            },
-                          ),
-                          const SizedBox(height: 20),
-                        ],
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _showCurrentAccount() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return Consumer<WalletProvider>(
-          builder: (context, walletProvider, child) {
-            final currentWallet = walletProvider.currentWallet;
-            final currentNetwork = walletProvider.currentNetwork;
-            final address = walletProvider.getCurrentNetworkAddress();
-
-            return AlertDialog(
-              backgroundColor: const Color(0xFF1A1B23),
-              title: const Text(
-                '当前账户',
-                style: TextStyle(color: Colors.white),
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '网络: ${currentNetwork?.name ?? '未选择'}',
-                    style: const TextStyle(color: Colors.white70),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '钱包: ${currentWallet?.name ?? '未选择'}',
-                    style: const TextStyle(color: Colors.white70),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    '地址:',
-                    style: TextStyle(color: Colors.white70),
-                  ),
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white10,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      address ?? '未生成地址',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontFamily: 'monospace',
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text(
-                    '关闭',
-                    style: TextStyle(color: Colors.white70),
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _showAddNewAddress() {
-    final TextEditingController passwordController = TextEditingController();
-    bool isPasswordVisible = false;
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return Consumer<WalletProvider>(
-              builder: (context, walletProvider, child) {
-                final currentWallet = walletProvider.currentWallet;
-                final currentNetwork = walletProvider.currentNetwork;
-
-                if (currentWallet == null || currentNetwork == null) {
-                  return AlertDialog(
-                    backgroundColor: const Color(0xFF1A1B23),
-                    title: const Text(
-                      '错误',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    content: const Text(
-                      '请先选择钱包和网络',
-                      style: TextStyle(color: Colors.white70),
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text(
-                          '确定',
-                          style: TextStyle(color: Colors.white70),
-                        ),
-                      ),
-                    ],
-                  );
-                }
-
-                return AlertDialog(
-                  backgroundColor: const Color(0xFF1A1B23),
-                  title: const Text(
-                    '添加新地址',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '将为 ${currentNetwork.name} 网络生成新地址',
-                        style: const TextStyle(color: Colors.white70),
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        '注意：新地址将从当前钱包的助记词派生',
-                        style: TextStyle(
-                          color: Colors.orange,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      const Text(
-                        '请输入钱包密码以验证身份：',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: passwordController,
-                        obscureText: !isPasswordVisible,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          hintText: '输入密码',
-                          hintStyle: const TextStyle(color: Colors.white54),
-                          filled: true,
-                          fillColor: const Color(0xFF2A2D3A),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide.none,
-                          ),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              isPasswordVisible
-                                  ? Icons.visibility
-                                  : Icons.visibility_off,
-                              color: Colors.white54,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                isPasswordVisible = !isPasswordVisible;
-                              });
-                            },
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text(
-                        '取消',
-                        style: TextStyle(color: Colors.white70),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () async {
-                        final password = passwordController.text.trim();
-                        if (password.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('请输入密码'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                          return;
-                        }
-
-                        Navigator.pop(context);
-                        await _generateNewAddress(password);
-                      },
-                      child: const Text(
-                        '生成',
-                        style: TextStyle(color: Colors.blue),
-                      ),
-                    ),
-                  ],
-                );
-              },
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Future<void> _generateNewAddress(String password) async {
     try {
       final walletProvider =
           Provider.of<WalletProvider>(context, listen: false);
-      final currentWallet = walletProvider.currentWallet;
-      final currentNetwork = walletProvider.currentNetwork;
+      final networks = ['ethereum', 'polygon', 'bsc', 'bitcoin', 'solana'];
+      final prices = {
+        'ethereum': 2000.0,
+        'polygon': 0.8,
+        'bsc': 300.0,
+        'bitcoin': 45000.0,
+        'solana': 100.0,
+      };
 
-      if (currentWallet == null || currentNetwork == null) {
-        throw Exception('钱包或网络未选择');
-      }
+      double totalValue = 0.0;
+      Map<String, double> balances = {};
 
-      // 显示加载提示
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('正在生成新地址...'),
-          backgroundColor: Colors.blue,
-        ),
-      );
-
-      // 获取助记词（使用用户输入的密码验证）
-      final mnemonic =
-          await walletProvider.getWalletMnemonic(currentWallet.id, password);
-      if (mnemonic == null) {
-        throw Exception('密码错误或无法获取助记词');
-      }
-
-      // 获取当前网络的地址列表和下一个索引
-      final currentAddresses = currentWallet.addresses[currentNetwork.id] ?? [];
-      final nextIndex = currentWallet.addressIndexes[currentNetwork.id] ??
-          currentAddresses.length;
-
-      // 生成新地址（使用下一个可用的索引）
-      final newAddress =
-          await walletProvider.generateAddressForNetworkWithIndex(
-        mnemonic,
-        currentNetwork.id,
-        nextIndex,
-      );
-
-      // 检查地址是否已存在（避免重复）
-      if (currentAddresses.contains(newAddress)) {
-        throw Exception('地址已存在，请重试');
-      }
-
-      // 更新钱包地址映射和索引
-      final updatedAddresses =
-          Map<String, List<String>>.from(currentWallet.addresses);
-      final updatedIndexes =
-          Map<String, int>.from(currentWallet.addressIndexes);
-
-      if (updatedAddresses[currentNetwork.id] == null) {
-        updatedAddresses[currentNetwork.id] = [];
-      }
-      updatedAddresses[currentNetwork.id]!.add(newAddress);
-      updatedIndexes[currentNetwork.id] = nextIndex + 1; // 递增索引到下一个可用位置
-
-      await walletProvider.updateWalletAddressesAndIndexes(
-          currentWallet.id, updatedAddresses, updatedIndexes);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('新地址已生成: ${newAddress.substring(0, 10)}...'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('生成地址失败: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  void _showImportPrivateKey() {
-    final TextEditingController privateKeyController = TextEditingController();
-    final TextEditingController passwordController = TextEditingController();
-    final TextEditingController walletNameController = TextEditingController();
-    bool isPasswordVisible = false;
-    bool isPrivateKeyVisible = false;
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              backgroundColor: const Color(0xFF1A1B23),
-              title: const Text(
-                '导入私钥',
-                style: TextStyle(color: Colors.white),
-              ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      '钱包名称:',
-                      style: TextStyle(color: Colors.white70),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: walletNameController,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        hintText: '输入钱包名称',
-                        hintStyle: const TextStyle(color: Colors.white54),
-                        filled: true,
-                        fillColor: const Color(0xFF2A2D3A),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      '私钥:',
-                      style: TextStyle(color: Colors.white70),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: privateKeyController,
-                      obscureText: !isPrivateKeyVisible,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        hintText: '输入私钥（64位十六进制字符）',
-                        hintStyle: const TextStyle(color: Colors.white54),
-                        filled: true,
-                        fillColor: const Color(0xFF2A2D3A),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide.none,
-                        ),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            isPrivateKeyVisible
-                                ? Icons.visibility
-                                : Icons.visibility_off,
-                            color: Colors.white54,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              isPrivateKeyVisible = !isPrivateKeyVisible;
-                            });
-                          },
-                        ),
-                      ),
-                      maxLines: isPrivateKeyVisible ? 2 : 1,
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      '设置钱包密码:',
-                      style: TextStyle(color: Colors.white70),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: passwordController,
-                      obscureText: !isPasswordVisible,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        hintText: '输入密码',
-                        hintStyle: const TextStyle(color: Colors.white54),
-                        filled: true,
-                        fillColor: const Color(0xFF2A2D3A),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide.none,
-                        ),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            isPasswordVisible
-                                ? Icons.visibility
-                                : Icons.visibility_off,
-                            color: Colors.white54,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              isPasswordVisible = !isPasswordVisible;
-                            });
-                          },
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      '注意：私钥将被安全加密存储，请确保私钥格式正确',
-                      style: TextStyle(
-                        color: Colors.orange,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text(
-                    '取消',
-                    style: TextStyle(color: Colors.white70),
-                  ),
-                ),
-                TextButton(
-                  onPressed: () {
-                    final privateKey = privateKeyController.text.trim();
-                    final password = passwordController.text.trim();
-                    final walletName = walletNameController.text.trim();
-
-                    if (walletName.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('请输入钱包名称'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                      return;
-                    }
-
-                    if (privateKey.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('请输入私钥'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                      return;
-                    }
-
-                    if (password.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('请设置密码'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                      return;
-                    }
-
-                    Navigator.pop(context);
-                    // 使用Future.microtask确保在下一个事件循环中执行，避免context问题
-                    Future.microtask(() =>
-                        _importPrivateKey(privateKey, password, walletName));
-                  },
-                  child: const Text(
-                    '导入',
-                    style: TextStyle(color: Colors.blue),
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Future<void> _importPrivateKey(
-      String privateKey, String password, String walletName) async {
-    try {
-      // 验证私钥格式
-      if (!_isValidPrivateKey(privateKey)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('私钥格式无效，请输入64位十六进制字符'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-
-      final walletProvider =
-          Provider.of<WalletProvider>(context, listen: false);
-
-      // 检查是否有当前钱包
-      if (walletProvider.currentWallet == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('请先创建或选择一个钱包'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-
-      // 显示加载提示
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('正在导入私钥地址...'),
-          backgroundColor: Colors.blue,
-        ),
-      );
-
-      // 将私钥地址添加到当前钱包
-      await walletProvider.addPrivateKeyToCurrentWallet(privateKey, walletName);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('私钥地址导入成功！已添加到当前钱包'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('私钥导入失败: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  bool _isValidPrivateKey(String privateKey) {
-    // 移除可能的0x前缀
-    final cleanKey = privateKey.toLowerCase().replaceFirst('0x', '');
-
-    // 检查长度（64个十六进制字符）
-    if (cleanKey.length != 64) {
-      return false;
-    }
-
-    // 检查是否只包含十六进制字符
-    final hexRegex = RegExp(r'^[0-9a-f]+$');
-    return hexRegex.hasMatch(cleanKey);
-  }
-
-  String _generateMnemonicFromPrivateKey(String privateKey) {
-    // 这是一个简化的实现
-    // 实际应用中，私钥导入通常不会生成助记词，而是直接使用私钥
-    // 这里为了兼容现有的钱包结构，生成一个有效的助记词
-    // 使用一个已知有效的助记词，但在实际应用中应该有更安全的处理方式
-    return 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
-  }
-
-  void _showSwitchAddress() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return Consumer<WalletProvider>(
-          builder: (context, walletProvider, child) {
-            final currentWallet = walletProvider.currentWallet;
-            final currentNetwork = walletProvider.currentNetwork;
-
-            if (currentWallet == null || currentNetwork == null) {
-              return AlertDialog(
-                backgroundColor: const Color(0xFF1A1B23),
-                title: const Text(
-                  '错误',
-                  style: TextStyle(color: Colors.white),
-                ),
-                content: const Text(
-                  '请先选择钱包和网络',
-                  style: TextStyle(color: Colors.white70),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text(
-                      '确定',
-                      style: TextStyle(color: Colors.white70),
-                    ),
-                  ),
-                ],
-              );
-            }
-
-            // 使用选中的地址或默认地址
-            final currentAddress = walletProvider.getCurrentNetworkAddress();
-
-            return AlertDialog(
-              backgroundColor: const Color(0xFF1A1B23),
-              title: const Text(
-                '切换地址',
-                style: TextStyle(color: Colors.white),
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '当前 ${currentNetwork.name} 地址:',
-                    style: const TextStyle(color: Colors.white70),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white10,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      currentAddress ?? '未生成地址',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontFamily: 'monospace',
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    '注意：多地址管理功能正在开发中',
-                    style: TextStyle(
-                      color: Colors.orange,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text(
-                    '关闭',
-                    style: TextStyle(color: Colors.white70),
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _showWalletSwitcher() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return Consumer<WalletProvider>(
-          builder: (context, walletProvider, child) {
-            return AlertDialog(
-              backgroundColor: const Color(0xFF1A1B23),
-              title: const Text(
-                '切换钱包',
-                style: TextStyle(color: Colors.white),
-              ),
-              content: SizedBox(
-                width: double.maxFinite,
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: walletProvider.wallets.length,
-                  itemBuilder: (context, index) {
-                    final wallet = walletProvider.wallets[index];
-                    final isSelected =
-                        wallet.id == walletProvider.currentWallet?.id;
-                    return ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: isSelected ? Colors.red : Colors.grey,
-                        child: const Icon(
-                          Icons.account_balance_wallet,
-                          color: Colors.white,
-                          size: 18,
-                        ),
-                      ),
-                      title: Text(
-                        wallet.name,
-                        style: TextStyle(
-                          color: isSelected ? Colors.white : Colors.white70,
-                          fontWeight:
-                              isSelected ? FontWeight.w600 : FontWeight.normal,
-                        ),
-                      ),
-                      subtitle: Text(
-                        _getWalletShortAddress(
-                            wallet, walletProvider.currentNetwork),
-                        style: const TextStyle(
-                          color: Colors.white54,
-                          fontSize: 12,
-                          fontFamily: 'monospace',
-                        ),
-                      ),
-                      onTap: () {
-                        walletProvider.setCurrentWallet(wallet);
-                        Navigator.pop(context);
-                      },
-                    );
-                  },
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text(
-                    '取消',
-                    style: TextStyle(color: Colors.white70),
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  String _getWalletShortAddress(Wallet wallet, Network? currentNetwork) {
-    if (currentNetwork != null) {
-      final addressList = wallet.addresses[currentNetwork.id];
-      if (addressList != null && addressList.isNotEmpty) {
-        final address = addressList.first;
-        if (address.length > 10) {
-          return '${address.substring(0, 6)}...${address.substring(address.length - 4)}';
+      for (String networkId in networks) {
+        try {
+          final balance = await walletProvider.getNetworkBalance(networkId);
+          balances[networkId] = balance;
+          totalValue += balance * (prices[networkId] ?? 0.0);
+        } catch (e) {
+          debugPrint('获取 $networkId 余额失败: $e');
+          balances[networkId] = 0.0;
         }
       }
-    }
-    return '未生成地址';
-  }
 
-  void _showExportMnemonic() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF1A1B23),
-          title: const Row(
-            children: [
-              Icon(Icons.warning, color: Colors.orange),
-              SizedBox(width: 8),
-              Text(
-                '安全警告',
-                style: TextStyle(color: Colors.white),
-              ),
-            ],
-          ),
-          content: const Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '导出助记词存在安全风险：',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              SizedBox(height: 12),
-              Text(
-                '• 任何人获得您的助记词都可以完全控制您的钱包\n'
-                '• 请确保在安全的环境中操作\n'
-                '• 不要在网络上分享或存储助记词\n'
-                '• 建议离线保存助记词',
-                style: TextStyle(
-                  color: Colors.white70,
-                  height: 1.5,
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text(
-                '取消',
-                style: TextStyle(color: Colors.white70),
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _proceedWithExport();
-              },
-              child: const Text(
-                '我了解风险，继续',
-                style: TextStyle(color: Colors.red),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _proceedWithExport() {
-    final TextEditingController passwordController = TextEditingController();
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF1A1B23),
-          title: const Text(
-            '输入钱包密码',
-            style: TextStyle(color: Colors.white),
-          ),
-          content: TextField(
-            controller: passwordController,
-            obscureText: true,
-            style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(
-              labelText: '密码',
-              labelStyle: TextStyle(color: Colors.white70),
-              border: OutlineInputBorder(),
-              enabledBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: Colors.white30),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: Colors.red),
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text(
-                '取消',
-                style: TextStyle(color: Colors.white70),
-              ),
-            ),
-            TextButton(
-              onPressed: () async {
-                final password = passwordController.text.trim();
-                if (password.isNotEmpty) {
-                  Navigator.of(context).pop();
-                  await _exportMnemonic(password);
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('请输入密码'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              },
-              child: const Text(
-                '确认',
-                style: TextStyle(color: Colors.red),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _exportMnemonic(String password) async {
-    try {
-      final walletProvider =
-          Provider.of<WalletProvider>(context, listen: false);
-      final currentWallet = walletProvider.currentWallet;
-
-      if (currentWallet == null) {
-        throw Exception('没有可用的钱包');
-      }
-
-      final mnemonic = await walletProvider.getWalletMnemonic(
-        currentWallet.id,
-        password,
-      );
-
-      if (mnemonic == null || mnemonic.isEmpty) {
-        throw Exception('密码错误或助记词获取失败');
-      }
-
-      _showMnemonicDialog(mnemonic);
+      setState(() {
+        _realBalances = balances;
+        _totalPortfolioValue = totalValue;
+        _isLoadingBalances = false;
+      });
     } catch (e) {
-      String errorMessage = '导出失败';
-      if (e.toString().contains('Invalid password')) {
-        errorMessage = '密码错误，请重新输入';
-      } else if (e.toString().contains('密码错误')) {
-        errorMessage = '密码错误，请重新输入';
-      } else {
-        errorMessage = '导出失败: $e';
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: Colors.red,
-        ),
-      );
+      debugPrint('加载余额失败: $e');
+      setState(() {
+        _isLoadingBalances = false;
+      });
     }
   }
 
-  void _showMnemonicDialog(String mnemonic) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF1A1B23),
-          title: const Text(
-            '助记词',
-            style: TextStyle(color: Colors.white),
-          ),
-          content: Container(
-            width: double.maxFinite,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white10,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: SelectableText(
-              mnemonic,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontFamily: 'monospace',
-                height: 1.5,
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Clipboard.setData(ClipboardData(text: mnemonic));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('助记词已复制到剪贴板'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              },
-              child: const Text(
-                '复制',
-                style: TextStyle(color: Colors.white70),
-              ),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text(
-                '关闭',
-                style: TextStyle(color: Colors.white70),
-              ),
-            ),
-          ],
-        );
-      },
-    );
+  /// 刷新余额
+  Future<void> _refreshBalances() async {
+    await _loadRealBalances();
+  }
+
+  /// 格式化价值显示
+  String _formatValue(double value) {
+    if (value.isNaN || value.isInfinite) {
+      return '\$0.00';
+    }
+    if (value >= 1000000) {
+      return '\$${(value / 1000000).toStringAsFixed(2)}M';
+    } else if (value >= 1000) {
+      return '\$${(value / 1000).toStringAsFixed(2)}K';
+    } else if (value >= 1) {
+      return "\$${value.toStringAsFixed(2)}";
+    } else {
+      return "\$${value.toStringAsFixed(4)}";
+    }
+  }
+
+  /// 格式化余额显示
+  String _formatBalance(double balance) {
+    if (balance.isNaN || balance.isInfinite) {
+      return '0.0000';
+    }
+    if (balance >= 1000000) {
+      return '${(balance / 1000000).toStringAsFixed(2)}M';
+    } else if (balance >= 1000) {
+      return '${(balance / 1000).toStringAsFixed(2)}K';
+    } else if (balance >= 1) {
+      return balance.toStringAsFixed(4);
+    } else {
+      return balance.toStringAsFixed(6);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF1A1B23),
-      body: Row(
-        children: [
-          // Sidebar
-          SizedBox(
-            width: _isSidebarCollapsed ? 80 : 280,
-            child: Sidebar(
-              onCollapseChanged: (isCollapsed) {
-                setState(() {
-                  _isSidebarCollapsed = isCollapsed;
-                });
-              },
-            ),
-          ),
-          // Main content
-          Expanded(
-            child: Column(
-              children: [
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(24),
-                    child: SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Header
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 8,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: const Text(
-                                  'Dashboard',
-                                  style: TextStyle(
-                                    color: Colors.black,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 8,
-                                ),
-                                child: const Text(
-                                  'Toolbox',
-                                  style: TextStyle(
-                                    color: Colors.white70,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                              const Spacer(),
-                              // Search and profile icons
-                              IconButton(
-                                onPressed: () {},
-                                icon: const Icon(
-                                  Icons.search,
-                                  color: Colors.white70,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              GestureDetector(
-                                onTap: _showWalletMenu,
-                                child: const CircleAvatar(
-                                  radius: 16,
-                                  backgroundColor: Colors.red,
-                                  child: Icon(
-                                    Icons.person,
-                                    color: Colors.white,
-                                    size: 18,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 24),
-                          // Swal Portfolio section
-                          const SizedBox(height: 24),
-                          // Portfolio Overview
-                          Row(
-                            children: [
-                              // Left side - Portfolio info
-                              Expanded(
-                                flex: 2,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Swal Portfolio',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Consumer<WalletProvider>(
-                                      builder:
-                                          (context, walletProvider, child) {
-                                        final assetService = AssetService();
-                                        final totalValue = assetService
-                                            .getTotalPortfolioValue();
-                                        return Text(
-                                          assetService.formatValue(totalValue),
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 32,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                    const SizedBox(height: 4),
-                                    const Text(
-                                      'Assets Chain',
-                                      style: TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              // Right side - Selected Balance
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    const Text(
-                                      'Selected Balance:',
-                                      style: TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Consumer<WalletProvider>(
-                                      builder:
-                                          (context, walletProvider, child) {
-                                        final currentAddress = walletProvider
-                                            .getCurrentNetworkAddress();
-                                        return Text(
-                                          currentAddress != null
-                                              ? '\$123,456 USD'
-                                              : '\$0 USD',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 24),
-                          // Network section
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Network',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Consumer<WalletProvider>(
-                                    builder: (context, walletProvider, child) {
-                                      final currentNetwork =
-                                          walletProvider.currentNetwork;
-                                      return Text(
-                                        currentNetwork != null
-                                            ? '当前: ${currentNetwork.name}'
-                                            : '未选择网络',
-                                        style: const TextStyle(
-                                          color: Colors.white70,
-                                          fontSize: 14,
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ],
-                              ),
-                              IconButton(
-                                onPressed: () {
-                                  _showNetworkRpcConfig();
-                                },
-                                icon: const Icon(
-                                  Icons.settings,
-                                  color: Colors.white70,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          // Available Balance Cards
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF6366F1),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Container(
-                                            width: 24,
-                                            height: 24,
-                                            decoration: const BoxDecoration(
-                                              color: Colors.white,
-                                              shape: BoxShape.circle,
-                                            ),
-                                            child: const Center(
-                                              child: Text(
-                                                'P',
-                                                style: TextStyle(
-                                                  color: Color(0xFF6366F1),
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          const Text(
-                                            'Available Balance:',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                          const Spacer(),
-                                          const Icon(
-                                            Icons.refresh,
-                                            color: Colors.white,
-                                            size: 16,
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Consumer<WalletProvider>(
-                                        builder:
-                                            (context, walletProvider, child) {
-                                          final assetService = AssetService();
-                                          final currentNetwork =
-                                              walletProvider.currentNetwork;
-                                          final networkValue =
-                                              currentNetwork != null
-                                                  ? assetService
-                                                      .getNetworkTotalValue(
-                                                          currentNetwork.id)
-                                                  : assetService
-                                                      .getTotalPortfolioValue();
-                                          return Text(
-                                            '${assetService.formatValue(networkValue)} USD',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF8B5CF6),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Container(
-                                            width: 24,
-                                            height: 24,
-                                            decoration: const BoxDecoration(
-                                              color: Colors.white,
-                                              shape: BoxShape.circle,
-                                            ),
-                                            child: const Center(
-                                              child: Text(
-                                                'P',
-                                                style: TextStyle(
-                                                  color: Color(0xFF8B5CF6),
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          const Text(
-                                            'Polygon',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                          const Spacer(),
-                                          const Icon(
-                                            Icons.refresh,
-                                            color: Colors.white,
-                                            size: 16,
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 8),
-                                      const Text(
-                                        '\$230,000',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 24),
-                          // Assets section
-                          const Text(
-                            'Assets',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          // Assets list
-                          Container(
-                            height: 300,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Consumer<WalletProvider>(
-                              builder: (context, walletProvider, child) {
-                                final assetService = AssetService();
-                                final currentNetwork =
-                                    walletProvider.currentNetwork;
-                                final assets = currentNetwork != null
-                                    ? assetService
-                                        .getAssetsByNetwork(currentNetwork.id)
-                                    : assetService.getAllAssets();
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 768;
 
-                                return ListView(
-                                  children: assets
-                                      .map((asset) => _buildAssetItem(
-                                            icon: asset.icon,
-                                            name:
-                                                '${asset.symbol} - ${asset.name}',
-                                            balance: asset.formattedBalance,
-                                            value: asset.formattedValue,
-                                            color: asset.color,
-                                          ))
-                                      .toList(),
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
+    return Scaffold(
+      key: _scaffoldKey,
+      backgroundColor: const Color(0xFF1A1B23),
+      drawer: isMobile
+          ? Drawer(
+              backgroundColor: const Color(0xFF1A1B23),
+              child: SafeArea(
+                child: Sidebar(
+                  onCollapseChanged: (isCollapsed) {
+                    setState(() {
+                      _isSidebarCollapsed = isCollapsed;
+                    });
+                    Navigator.of(context).pop(); // 关闭抽屉
+                  },
+                ),
+              ),
+            )
+          : null,
+      body: SafeArea(
+        child: isMobile
+            ? _buildMobileLayout()
+            : Row(
+                children: [
+                  // Desktop Sidebar
+                  SizedBox(
+                    width: _isSidebarCollapsed ? 80 : 280,
+                    child: Sidebar(
+                      onCollapseChanged: (isCollapsed) {
+                        setState(() {
+                          _isSidebarCollapsed = isCollapsed;
+                        });
+                      },
                     ),
                   ),
-                ),
-                // Fixed bottom action buttons
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.pushNamed(context, '/send');
-                          },
-                          icon: const Icon(Icons.arrow_upward),
-                          label: const Text('发送'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF6366F1),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            Navigator.pushNamed(context, '/receive');
-                          },
-                          icon: const Icon(Icons.arrow_downward),
-                          label: const Text('接收'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            side: const BorderSide(color: Colors.white70),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            Navigator.pushNamed(context, '/swap');
-                          },
-                          icon: const Icon(Icons.swap_horiz),
-                          label: const Text('交换'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            side: const BorderSide(color: Colors.white70),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                  // Main content
+                  Expanded(
+                    child: _buildMainContent(),
                   ),
-                ),
-              ],
+                ],
+              ),
+      ),
+    );
+  }
+
+  Widget _buildMobileLayout() {
+    return Column(
+      children: [
+        Expanded(
+          child: _buildMainContent(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMainContent() {
+    final isMobile = MediaQuery.of(context).size.width < 768;
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        isMobile ? 16 : 24, // left
+        isMobile ? 8 : 24, // top - 减少顶部间距
+        isMobile ? 16 : 24, // right
+        isMobile ? 16 : 24, // bottom
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            if (isMobile) _buildMobileHeader() else _buildDesktopHeader(),
+            SizedBox(height: isMobile ? 16 : 24), // 减少间距
+            // Portfolio content
+            _buildPortfolioContent(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileHeader() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8), // 添加底部间距
+      child: Row(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: IconButton(
+              onPressed: () {
+                try {
+                  _scaffoldKey.currentState?.openDrawer();
+                } catch (e) {
+                  debugPrint('打开抽屉失败: $e');
+                }
+              },
+              icon: const Icon(
+                Icons.menu,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 8,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Text(
+              'Dashboard',
+              style: TextStyle(
+                color: Colors.black,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const Spacer(),
+          GestureDetector(
+            onTap: _showWalletMenu,
+            child: const CircleAvatar(
+              radius: 18,
+              backgroundColor: Colors.red,
+              child: Icon(
+                Icons.person,
+                color: Colors.white,
+                size: 20,
+              ),
             ),
           ),
         ],
@@ -2239,34 +254,485 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildAssetItem({
-    required IconData icon,
-    required String name,
-    required String balance,
-    required String value,
+  Widget _buildDesktopHeader() {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 8,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: const Text(
+            'Dashboard',
+            style: TextStyle(
+              color: Colors.black,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 8,
+          ),
+          child: const Text(
+            'Toolbox',
+            style: TextStyle(
+              color: Colors.white70,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        const Spacer(),
+        IconButton(
+          onPressed: () {},
+          icon: const Icon(
+            Icons.search,
+            color: Colors.white70,
+          ),
+        ),
+        const SizedBox(width: 8),
+        GestureDetector(
+          onTap: _showWalletMenu,
+          child: const CircleAvatar(
+            radius: 16,
+            backgroundColor: Colors.red,
+            child: Icon(
+              Icons.person,
+              color: Colors.white,
+              size: 18,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPortfolioContent() {
+    final isMobile = MediaQuery.of(context).size.width < 768;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Portfolio title and total value
+        const Text(
+          'Swal Portfolio',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        _isLoadingBalances
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : GestureDetector(
+                onTap: _refreshBalances,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        _formatValue(_totalPortfolioValue),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(
+                      Icons.refresh,
+                      color: Colors.white70,
+                      size: 18,
+                    ),
+                  ],
+                ),
+              ),
+        const SizedBox(height: 4),
+        const Text(
+          'Assets Chain',
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: 12,
+          ),
+        ),
+        const SizedBox(height: 16),
+        // Selected Balance section
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Selected Balance:',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Consumer<WalletProvider>(
+                      builder: (context, walletProvider, child) {
+                        final currentNetwork = walletProvider.currentNetwork;
+                        final currentAddress =
+                            walletProvider.getCurrentNetworkAddress();
+
+                        if (currentAddress == null || currentNetwork == null) {
+                          return const Text(
+                            '\$0.00',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          );
+                        }
+
+                        final balance = _realBalances[currentNetwork.id] ?? 0.0;
+                        final prices = {
+                          'ethereum': 2000.0,
+                          'polygon': 0.8,
+                          'bsc': 300.0,
+                          'bitcoin': 45000.0,
+                          'solana': 100.0,
+                        };
+                        final price = prices[currentNetwork.id] ?? 0.0;
+                        final value = balance * price;
+
+                        return Text(
+                          _formatValue(value),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              Consumer<WalletProvider>(
+                builder: (context, walletProvider, child) {
+                  final currentNetwork = walletProvider.currentNetwork;
+                  return Text(
+                    currentNetwork?.name ?? '未选择',
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        // Network cards - responsive layout
+        if (isMobile)
+          _buildMobileNetworkCards()
+        else
+          _buildDesktopNetworkCards(),
+        const SizedBox(height: 24),
+        // Assets section
+        const Text(
+          'Assets',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 16),
+        _buildAssetsList(),
+      ],
+    );
+  }
+
+  Widget _buildMobileNetworkCards() {
+    return Column(
+      children: [
+        _buildNetworkCard(
+          title: 'Available Balance:',
+          color: const Color(0xFF6366F1),
+          icon: 'P',
+          getValue: () {
+            final walletProvider =
+                Provider.of<WalletProvider>(context, listen: false);
+            final currentNetwork = walletProvider.currentNetwork;
+            if (currentNetwork == null)
+              return _formatValue(_totalPortfolioValue);
+
+            final balance = _realBalances[currentNetwork.id] ?? 0.0;
+            final prices = {
+              'ethereum': 2000.0,
+              'polygon': 0.8,
+              'bsc': 300.0,
+              'bitcoin': 45000.0,
+              'solana': 100.0,
+            };
+            final price = prices[currentNetwork.id] ?? 0.0;
+            final networkValue = balance * price;
+            return _formatValue(networkValue);
+          },
+        ),
+        const SizedBox(height: 12),
+        _buildNetworkCard(
+          title: 'Polygon',
+          color: const Color(0xFF8B5CF6),
+          icon: 'P',
+          getValue: () {
+            final polygonBalance = _realBalances['polygon'] ?? 0.0;
+            final polygonPrice = 0.8;
+            final polygonValue = polygonBalance * polygonPrice;
+            return _formatValue(polygonValue);
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDesktopNetworkCards() {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildNetworkCard(
+            title: 'Available Balance:',
+            color: const Color(0xFF6366F1),
+            icon: 'P',
+            getValue: () {
+              final walletProvider =
+                  Provider.of<WalletProvider>(context, listen: false);
+              final currentNetwork = walletProvider.currentNetwork;
+              if (currentNetwork == null)
+                return _formatValue(_totalPortfolioValue);
+
+              final balance = _realBalances[currentNetwork.id] ?? 0.0;
+              final prices = {
+                'ethereum': 2000.0,
+                'polygon': 0.8,
+                'bsc': 300.0,
+                'bitcoin': 45000.0,
+                'solana': 100.0,
+              };
+              final price = prices[currentNetwork.id] ?? 0.0;
+              final networkValue = balance * price;
+              return _formatValue(networkValue);
+            },
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildNetworkCard(
+            title: 'Polygon',
+            color: const Color(0xFF8B5CF6),
+            icon: 'P',
+            getValue: () {
+              final polygonBalance = _realBalances['polygon'] ?? 0.0;
+              final polygonPrice = 0.8;
+              final polygonValue = polygonBalance * polygonPrice;
+              return _formatValue(polygonValue);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNetworkCard({
+    required String title,
     required Color color,
-    String? action,
+    required String icon,
+    required String Function() getValue,
   }) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: Colors.grey.shade200),
-        ),
+        color: color,
+        borderRadius: BorderRadius.circular(12),
       ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 24,
+                height: 24,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Text(
+                    icon,
+                    style: TextStyle(
+                      color: color,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              GestureDetector(
+                onTap: _refreshBalances,
+                child: const Icon(
+                  Icons.refresh,
+                  color: Colors.white,
+                  size: 16,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            getValue(),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAssetsList() {
+    return Container(
+      constraints: const BoxConstraints(
+        minHeight: 200,
+        maxHeight: 400,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Consumer<WalletProvider>(
+        builder: (context, walletProvider, child) {
+          final allAssets = [
+            {
+              'id': 'ethereum',
+              'name': 'Ethereum',
+              'symbol': 'ETH',
+              'icon': Icons.currency_bitcoin,
+              'color': const Color(0xFF627EEA),
+              'price': 2000.0,
+            },
+            {
+              'id': 'polygon',
+              'name': 'Polygon',
+              'symbol': 'MATIC',
+              'icon': Icons.hexagon,
+              'color': const Color(0xFF8247E5),
+              'price': 0.8,
+            },
+            {
+              'id': 'bsc',
+              'name': 'BNB',
+              'symbol': 'BNB',
+              'icon': Icons.currency_exchange,
+              'color': const Color(0xFFF3BA2F),
+              'price': 300.0,
+            },
+            {
+              'id': 'bitcoin',
+              'name': 'Bitcoin',
+              'symbol': 'BTC',
+              'icon': Icons.currency_bitcoin,
+              'color': const Color(0xFFF7931A),
+              'price': 45000.0,
+            },
+            {
+              'id': 'solana',
+              'name': 'Solana',
+              'symbol': 'SOL',
+              'icon': Icons.wb_sunny,
+              'color': const Color(0xFF9945FF),
+              'price': 100.0,
+            },
+          ];
+
+          return ListView.builder(
+            shrinkWrap: true,
+            itemCount: allAssets.length,
+            itemBuilder: (context, index) {
+              final asset = allAssets[index];
+              final balance = _realBalances[asset['id']] ?? 0.0;
+              final price = asset['price'] as double;
+              final value = balance * price;
+
+              return _buildAssetItem(
+                icon: asset['icon'] as IconData,
+                name: asset['name'] as String,
+                symbol: asset['symbol'] as String,
+                balance: balance,
+                value: value,
+                color: asset['color'] as Color,
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildAssetItem({
+    required IconData icon,
+    required String name,
+    required String symbol,
+    required double balance,
+    required double value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
           Container(
-            width: 32,
-            height: 32,
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
-              color: color,
+              color: color.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
               icon,
-              color: Colors.white,
-              size: 18,
+              color: color,
+              size: 20,
             ),
           ),
           const SizedBox(width: 12),
@@ -2277,19 +743,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 Text(
                   name,
                   style: const TextStyle(
-                    color: Colors.black,
-                    fontSize: 16,
+                    fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                if (action != null)
-                  Text(
-                    action,
-                    style: const TextStyle(
-                      color: Colors.grey,
-                      fontSize: 12,
-                    ),
+                Text(
+                  symbol,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
                   ),
+                ),
               ],
             ),
           ),
@@ -2297,30 +761,74 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                balance,
+                _formatBalance(balance),
                 style: const TextStyle(
-                  color: Colors.black,
-                  fontSize: 16,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               Text(
-                value,
+                _formatValue(value),
                 style: const TextStyle(
-                  color: Colors.grey,
                   fontSize: 12,
+                  color: Colors.grey,
                 ),
               ),
             ],
           ),
-          const SizedBox(width: 8),
-          const Icon(
-            Icons.chevron_right,
-            color: Colors.grey,
-            size: 20,
-          ),
         ],
       ),
+    );
+  }
+
+  void _showWalletMenu() {
+    // 钱包菜单实现
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFF1A1B23),
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(20),
+              topRight: Radius.circular(20),
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(top: 12, bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.white30,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Text(
+                '钱包菜单',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 20),
+              ListTile(
+                leading: const Icon(Icons.settings, color: Colors.white70),
+                title: const Text('设置', style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/settings');
+                },
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        );
+      },
     );
   }
 }

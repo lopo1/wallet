@@ -71,10 +71,12 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
     if (_isCreatingNew && !_mnemonicConfirmed) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please confirm you have saved your mnemonic phrase'),
+          content: Text('请先确认您已安全保存助记词，然后勾选确认复选框'),
           backgroundColor: Colors.red,
+          duration: Duration(seconds: 4),
         ),
       );
+      // 滚动到确认复选框位置
       return;
     }
     
@@ -146,13 +148,20 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: Scrollbar(
+                thumbVisibility: true,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  physics: const BouncingScrollPhysics(),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
               // Toggle between create and import
               Container(
                 decoration: BoxDecoration(
@@ -255,34 +264,88 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
               if (_isCreatingNew) ..._buildCreateWalletSection(),
               if (!_isCreatingNew) ..._buildImportWalletSection(),
               
-              const SizedBox(height: 32),
-              
-              // Create/Import button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _createWallet,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF6366F1),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                        const SizedBox(height: 24),
+                      ],
                     ),
                   ),
-                  child: _isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : Text(
-                          _isCreatingNew ? 'Create Wallet' : 'Import Wallet',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
                 ),
               ),
-            ],
-          ),
+            ),
+            // Fixed bottom button with scroll hint
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A1B23),
+                border: const Border(
+                  top: BorderSide(color: Color(0xFF2A2D3A), width: 1),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, -5),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_isCreatingNew && !_mnemonicConfirmed)
+                     Container(
+                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                       margin: const EdgeInsets.only(bottom: 16),
+                       decoration: BoxDecoration(
+                         color: Colors.orange.withOpacity(0.1),
+                         borderRadius: BorderRadius.circular(8),
+                         border: Border.all(color: Colors.orange, width: 1),
+                       ),
+                       child: const Row(
+                         children: [
+                           Icon(Icons.info_outline, color: Colors.orange, size: 16),
+                           SizedBox(width: 6),
+                           Expanded(
+                             child: Text(
+                               '请向上滚动查看并确认保存助记词',
+                               style: TextStyle(
+                                 color: Colors.orange,
+                                 fontSize: 11,
+                               ),
+                               maxLines: 2,
+                               overflow: TextOverflow.ellipsis,
+                             ),
+                           ),
+                         ],
+                       ),
+                     ),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _createWallet,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: (_isCreatingNew && !_mnemonicConfirmed) 
+                            ? Colors.grey 
+                            : const Color(0xFF6366F1),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: _isLoading
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : Text(
+                              _isCreatingNew ? '创建钱包' : '导入钱包',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -364,14 +427,35 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
       const SizedBox(height: 24),
       
       // Mnemonic display
-      const Text(
-        'Your Mnemonic Phrase',
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
+      Row(
+         children: [
+           const Expanded(
+             child: Text(
+               '您的助记词',
+               style: TextStyle(
+                 color: Colors.white,
+                 fontSize: 16,
+                 fontWeight: FontWeight.w600,
+               ),
+             ),
+           ),
+           Container(
+             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+             decoration: BoxDecoration(
+               color: Colors.orange.withOpacity(0.2),
+               borderRadius: BorderRadius.circular(8),
+             ),
+             child: const Text(
+               '重要',
+               style: TextStyle(
+                 color: Colors.orange,
+                 fontSize: 10,
+                 fontWeight: FontWeight.w600,
+               ),
+             ),
+           ),
+         ],
+       ),
       const SizedBox(height: 12),
       Container(
         padding: const EdgeInsets.all(16),
@@ -384,11 +468,11 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
           children: [
             const Row(
               children: [
-                Icon(Icons.warning, color: Colors.orange, size: 20),
+                Icon(Icons.security, color: Colors.orange, size: 20),
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Save this phrase securely. You\'ll need it to recover your wallet.',
+                    '请安全保存此助记词！这是恢复钱包的唯一方式。',
                     style: TextStyle(
                       color: Colors.orange,
                       fontSize: 12,
@@ -400,35 +484,44 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
             ),
             const SizedBox(height: 16),
             Container(
+              constraints: const BoxConstraints(
+                minHeight: 120,
+                maxHeight: 200,
+              ),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: _showMnemonic ? const Color(0xFF1A1B23) : Colors.grey.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: _showMnemonic
-                  ? SelectableText(
-                      _generatedMnemonic,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontFamily: 'monospace',
+                  ? SingleChildScrollView(
+                      child: SelectableText(
+                        _generatedMnemonic,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontFamily: 'monospace',
+                          height: 1.5,
+                        ),
                       ),
                     )
                   : GestureDetector(
                       onTap: () => setState(() => _showMnemonic = true),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.visibility, color: Colors.white70),
-                          SizedBox(width: 8),
-                          Text(
-                            'Tap to reveal mnemonic',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 14,
+                      child: const Center(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.visibility, color: Colors.white70),
+                            SizedBox(width: 8),
+                            Text(
+                              '点击显示助记词',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 14,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
             ),
@@ -442,30 +535,36 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
                         Clipboard.setData(ClipboardData(text: _generatedMnemonic));
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Mnemonic copied to clipboard'),
+                            content: Text('助记词已复制'),
                             duration: Duration(seconds: 2),
                           ),
                         );
                       },
-                      icon: const Icon(Icons.copy, size: 16),
-                      label: const Text('Copy'),
+                      icon: const Icon(Icons.copy, size: 14),
+                      label: const Text(
+                        '复制',
+                        style: TextStyle(fontSize: 12),
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF6366F1),
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: _generateNewMnemonic,
-                      icon: const Icon(Icons.refresh, size: 16),
-                      label: const Text('Generate New'),
+                      icon: const Icon(Icons.refresh, size: 14),
+                      label: const Text(
+                        '重新生成',
+                        style: TextStyle(fontSize: 12),
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF2A2D3A),
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
                       ),
                     ),
                   ),
@@ -477,24 +576,54 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
       ),
       const SizedBox(height: 24),
       
-      // Confirmation checkbox
-      Row(
-        children: [
-          Checkbox(
-            value: _mnemonicConfirmed,
-            onChanged: (value) => setState(() => _mnemonicConfirmed = value ?? false),
-            activeColor: const Color(0xFF6366F1),
+      // Confirmation checkbox with enhanced visibility
+      Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: _mnemonicConfirmed ? const Color(0xFF6366F1).withOpacity(0.1) : const Color(0xFF2A2D3A),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: _mnemonicConfirmed ? const Color(0xFF6366F1) : Colors.transparent,
+            width: 2,
           ),
-          const Expanded(
-            child: Text(
-              'I have saved my mnemonic phrase in a secure location',
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 14,
-              ),
-            ),
-          ),
-        ],
+        ),
+        child: Row(
+           crossAxisAlignment: CrossAxisAlignment.start,
+           children: [
+             Checkbox(
+               value: _mnemonicConfirmed,
+               onChanged: (value) => setState(() => _mnemonicConfirmed = value ?? false),
+               activeColor: const Color(0xFF6366F1),
+               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+             ),
+             const SizedBox(width: 8),
+             Expanded(
+               child: Column(
+                 crossAxisAlignment: CrossAxisAlignment.start,
+                 children: [
+                   const Text(
+                     '我已安全保存助记词',
+                     style: TextStyle(
+                       color: Colors.white,
+                       fontSize: 14,
+                       fontWeight: FontWeight.w600,
+                     ),
+                   ),
+                   const SizedBox(height: 4),
+                   Text(
+                      '请确保您已将助记词保存在安全的地方',
+                      style: TextStyle(
+                        color: _mnemonicConfirmed ? Colors.white70 : Colors.orange,
+                        fontSize: 11,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                 ],
+               ),
+             ),
+           ],
+         ),
       ),
     ];
   }
