@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:bip39/bip39.dart' as bip39;
+import 'package:bip32/bip32.dart' as bip32;
 import 'package:hex/hex.dart';
 import 'package:crypto/crypto.dart';
 import 'package:web3dart/web3dart.dart' as web3;
@@ -16,6 +17,8 @@ import '../services/address_service.dart';
 import '../services/solana_wallet_service.dart';
 import '../services/transaction_monitor_service.dart';
 import '../services/solana_transaction_monitor.dart';
+import '../constants/derivation_paths.dart';
+import '../constants/network_constants.dart';
 
 class WalletProvider extends ChangeNotifier {
   List<Wallet> _wallets = [];
@@ -94,8 +97,9 @@ class WalletProvider extends ChangeNotifier {
         name: 'BSC',
         symbol: 'BNB',
         chainId: 56,
-        rpcUrl: 'https://bsc-dataseed.binance.org',
+        rpcUrl: 'https://data-seed-prebsc-1-s3.bnbchain.org:8545',
         rpcUrls: [
+          'https://data-seed-prebsc-1-s3.bnbchain.org:8545',
           'https://bsc-dataseed.binance.org',
           'https://bsc-dataseed1.defibit.io',
           'https://bsc-dataseed1.ninicoin.io',
@@ -122,8 +126,9 @@ class WalletProvider extends ChangeNotifier {
         name: 'Solana',
         symbol: 'SOL',
         chainId: 101, // Solana mainnet
-        rpcUrl: 'https://api.devnet.solana.com',
+        rpcUrl: 'https://api.zan.top/node/v1/solana/devnet/b49c38feccc54a49a318db163d336c60',
         rpcUrls: [
+          'https://api.zan.top/node/v1/solana/devnet/b49c38feccc54a49a318db163d336c60',
           'https://api.devnet.solana.com',
           'https://api.mainnet-beta.solana.com',
           'https://rpc.ankr.com/solana',
@@ -1001,9 +1006,7 @@ class WalletProvider extends ChangeNotifier {
       }
 
       // 使用SolanaWalletService获取余额
-      if (_solanaWalletService == null) {
-        _solanaWalletService = SolanaWalletService(effectiveRpcUrl);
-      }
+      _solanaWalletService ??= SolanaWalletService(effectiveRpcUrl);
 
       debugPrint('=== Solana余额查询请求 ===');
       debugPrint('RPC URL: $effectiveRpcUrl');
@@ -1040,7 +1043,7 @@ class WalletProvider extends ChangeNotifier {
     }
 
     return await _solanaWalletService!.getAllPriorityFees(
-      mnemonic: _currentWallet!.mnemonic!,
+      mnemonic: _currentWallet!.mnemonic,
       toAddress: toAddress,
       amount: amount,
     );
@@ -1065,7 +1068,7 @@ class WalletProvider extends ChangeNotifier {
     }
 
     return await _solanaWalletService!.sendSolTransfer(
-      mnemonic: _currentWallet!.mnemonic!,
+      mnemonic: _currentWallet!.mnemonic,
       fromAddress: fromAddress,
       toAddress: toAddress,
       amount: amount,
@@ -1087,7 +1090,7 @@ class WalletProvider extends ChangeNotifier {
     }
 
     return await _solanaWalletService!.optimizeTransactionFee(
-      mnemonic: _currentWallet!.mnemonic!,
+      mnemonic: _currentWallet!.mnemonic,
       toAddress: toAddress,
       amount: amount,
       maxFeeInSol: maxFeeInSol,
@@ -1126,7 +1129,7 @@ class WalletProvider extends ChangeNotifier {
 
     // 发送交易
     final transaction = await _solanaWalletService!.sendSolTransfer(
-      mnemonic: _currentWallet!.mnemonic!,
+      mnemonic: _currentWallet!.mnemonic,
       fromAddress: fromAddress,
       toAddress: toAddress,
       amount: amount,
@@ -1321,6 +1324,12 @@ class WalletProvider extends ChangeNotifier {
     required String password,
   }) async {
     try {
+      debugPrint('=== EVM交易发送开始 ===');
+      debugPrint('网络: $networkId');
+      debugPrint('RPC URL: $rpcUrl');
+      debugPrint('接收地址: $toAddress');
+      debugPrint('发送金额: $amount');
+
       // 获取助记词
       final mnemonic = await getWalletMnemonic(_currentWallet!.id, password);
       if (mnemonic == null) {
@@ -1330,20 +1339,97 @@ class WalletProvider extends ChangeNotifier {
       // 创建Web3客户端
       final client = web3.Web3Client(rpcUrl, http.Client());
 
-      // 从助记词生成私钥
+      // 从助记词生成私钥 - 使用正确的BIP44派生路径
       final seed = bip39.mnemonicToSeed(mnemonic);
-      final privateKey = HEX.encode(seed.sublist(0, 32));
+      final root = bip32.BIP32.fromSeed(seed);
+      
+      // 获取当前选中地址的索引
+      int addressIndex = 0;
+      if (_selectedAddress != null && _currentWallet != null && _currentNetwork != null) {
+        final addressList = _currentWallet!.addresses[_currentNetwork!.id];
+        if (addressList != null) {
+          final index = addressList.indexOf(_selectedAddress!);
+          if (index >= 0) {
+            addressIndex = index;
+          }
+        }
+      }
+      
+      // 使用公共的派生路径和对应的地址索引
+      final derivationPath = DerivationPaths.ethereumWithIndex(addressIndex);
+      final child = root.derivePath(derivationPath);
+      final privateKeyBytes = child.privateKey;
+      if (privateKeyBytes == null) {
+        throw Exception('无法派生私钥');
+      }
+      final privateKey = HEX.encode(privateKeyBytes);
       final credentials = web3.EthPrivateKey.fromHex(privateKey);
+      
+      debugPrint('使用派生路径: $derivationPath');
+      debugPrint('地址索引: $addressIndex');
+      debugPrint('发送地址: ${credentials.address.hex}');
 
       // 获取网络信息
       final network = _supportedNetworks.firstWhere((n) => n.id == networkId);
-      final chainId = network.chainId;
+      
+      // 从RPC获取链ID而不是使用预设值
+      final chainId = await client.getChainId();
+      debugPrint('从RPC获取的链ID: $chainId');
+
+      // 获取当前余额
+      final balance = await client.getBalance(credentials.address);
+      debugPrint('当前余额: ${balance.getValueInUnit(web3.EtherUnit.ether)} ETH');
 
       // 将金额转换为Wei
-      final weiAmount = web3.EtherAmount.fromUnitAndValue(
-        web3.EtherUnit.ether,
-        amount,
+      final weiAmount = web3.EtherAmount.fromBigInt(
+        web3.EtherUnit.wei,
+        BigInt.from((amount * 1e18).toInt()),
       );
+      debugPrint('转换后的Wei金额: ${weiAmount.getInWei}');
+
+      // 获取gas价格和估算gas限制
+      final gasPrice = await client.getGasPrice();
+      debugPrint('Gas价格: ${gasPrice.getInWei} wei');
+
+      // 先进行gas预估 - 创建交易对象进行更准确的估算
+      final transaction = web3.Transaction(
+        to: web3.EthereumAddress.fromHex(toAddress),
+        value: weiAmount,
+        gasPrice: gasPrice,
+      );
+
+      // 估算gas限制 - 使用完整的交易参数
+      BigInt gasLimit;
+      try {
+        gasLimit = await client.estimateGas(
+          sender: credentials.address,
+          to: web3.EthereumAddress.fromHex(toAddress),
+          value: weiAmount,
+          gasPrice: gasPrice,
+        );
+        debugPrint('估算Gas限制: $gasLimit');
+        
+        // 为安全起见，增加10%的gas缓冲
+        gasLimit = (gasLimit * BigInt.from(110)) ~/ BigInt.from(100);
+        debugPrint('添加缓冲后的Gas限制: $gasLimit');
+      } catch (e) {
+        debugPrint('Gas估算失败，使用默认值: $e');
+        // 如果估算失败，使用默认的gas限制
+        gasLimit = BigInt.from(21000); // 标准转账的gas限制
+      }
+
+      // 计算总费用
+      final totalFee = gasPrice.getInWei * BigInt.from(gasLimit.toInt());
+      final totalCost = weiAmount.getInWei + totalFee;
+      debugPrint('Gas费用: ${web3.EtherAmount.fromBigInt(web3.EtherUnit.wei, totalFee).getValueInUnit(web3.EtherUnit.ether)} ETH');
+      debugPrint('总成本: ${web3.EtherAmount.fromBigInt(web3.EtherUnit.wei, totalCost).getValueInUnit(web3.EtherUnit.ether)} ETH');
+
+      // 检查余额是否足够
+      if (balance.getInWei < totalCost) {
+        final shortfall = totalCost - balance.getInWei;
+        debugPrint('余额不足！缺少: ${web3.EtherAmount.fromBigInt(web3.EtherUnit.wei, shortfall).getValueInUnit(web3.EtherUnit.ether)} ETH');
+        throw Exception('余额不足，需要额外 ${web3.EtherAmount.fromBigInt(web3.EtherUnit.wei, shortfall).getValueInUnit(web3.EtherUnit.ether)} ETH');
+      }
 
       // 发送交易
       final txHash = await client.sendTransaction(
@@ -1351,8 +1437,10 @@ class WalletProvider extends ChangeNotifier {
         web3.Transaction(
           to: web3.EthereumAddress.fromHex(toAddress),
           value: weiAmount,
+          gasPrice: gasPrice,
+          maxGas: gasLimit.toInt(),
         ),
-        chainId: chainId,
+        chainId: chainId.toInt(),
       );
 
       client.dispose();
@@ -1595,6 +1683,140 @@ class WalletProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('存储数据到链上并监控失败: $e');
       rethrow;
+    }
+  }
+
+  /// 获取网络的实时费用估算
+  Future<double> getNetworkFeeEstimate(String networkId, {String? rpcUrl, double? amount}) async {
+    try {
+      switch (networkId) {
+        case NetworkConstants.ethereumNetworkId:
+        case NetworkConstants.bscNetworkId:
+        case NetworkConstants.polygonNetworkId:
+          return await _getEVMFeeEstimate(networkId, rpcUrl: rpcUrl, amount: amount);
+        case NetworkConstants.solanaNetworkId:
+          return await _getSolanaFeeEstimate(amount: amount);
+        case NetworkConstants.bitcoinNetworkId:
+          return await _getBitcoinFeeEstimate(amount: amount);
+        default:
+          return NetworkConstants.ethereumBaseFee; // 默认费用
+      }
+    } catch (e) {
+      debugPrint('获取网络费用估算失败: $e');
+      // 返回默认费用
+      switch (networkId) {
+        case NetworkConstants.ethereumNetworkId:
+        case NetworkConstants.bscNetworkId:
+        case NetworkConstants.polygonNetworkId:
+          return NetworkConstants.ethereumBaseFee;
+        case NetworkConstants.solanaNetworkId:
+          return NetworkConstants.solanaBaseFee;
+        case NetworkConstants.bitcoinNetworkId:
+          return NetworkConstants.bitcoinBaseFee;
+        default:
+          return NetworkConstants.ethereumBaseFee;
+      }
+    }
+  }
+
+  /// 获取EVM网络的费用估算（以太坊、BSC、Polygon）
+  Future<double> _getEVMFeeEstimate(String networkId, {String? rpcUrl, double? amount}) async {
+    try {
+      // 获取网络信息
+      final network = _supportedNetworks.firstWhere((n) => n.id == networkId);
+      final effectiveRpcUrl = rpcUrl ?? network.rpcUrl;
+      final client = web3.Web3Client(effectiveRpcUrl, http.Client());
+
+      // 获取当前gas价格
+      final gasPrice = await client.getGasPrice();
+      
+      // 使用标准转账的gas限制
+      const standardGasLimit = NetworkConstants.evmStandardTransferGasLimit;
+      
+      // 如果提供了金额，可以进行更精确的gas估算
+      BigInt gasLimit = BigInt.from(standardGasLimit);
+      
+      if (amount != null && _selectedAddress != null) {
+        try {
+          final weiAmount = web3.EtherAmount.fromBigInt(
+            web3.EtherUnit.wei,
+            BigInt.from((amount * 1e18).toInt()),
+          );
+          
+          // 尝试估算实际的gas限制
+          gasLimit = await client.estimateGas(
+            sender: web3.EthereumAddress.fromHex(_selectedAddress!),
+            to: web3.EthereumAddress.fromHex('0x0000000000000000000000000000000000000000'), // 占位地址
+            value: weiAmount,
+            gasPrice: gasPrice,
+          );
+          
+          // 添加10%缓冲
+          gasLimit = (gasLimit * BigInt.from(110)) ~/ BigInt.from(100);
+        } catch (e) {
+          debugPrint('Gas估算失败，使用默认值: $e');
+          gasLimit = BigInt.from(standardGasLimit);
+        }
+      }
+      
+      // 计算总费用：gasPrice * gasLimit
+      final totalFee = gasPrice.getInWei * gasLimit;
+      final feeInEther = web3.EtherAmount.fromBigInt(web3.EtherUnit.wei, totalFee)
+          .getValueInUnit(web3.EtherUnit.ether);
+      
+      client.dispose();
+      debugPrint('$networkId 网络费用估算: $feeInEther ETH (gasPrice: ${gasPrice.getInWei} wei, gasLimit: $gasLimit)');
+      
+      return feeInEther;
+    } catch (e) {
+      debugPrint('获取 $networkId 费用估算失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 获取Solana网络的费用估算
+  Future<double> _getSolanaFeeEstimate({double? amount}) async {
+    try {
+      if (_solanaWalletService == null) {
+        return NetworkConstants.solanaBaseFee; // 默认Solana基础费用
+      }
+      
+      // 获取当前网络状态和费用信息
+      final networkStatus = await _solanaWalletService!.getNetworkStatus();
+      final baseFee = networkStatus['baseFee'] ?? 5000; // 微lamports
+      
+      // 转换为SOL（使用网络常量）
+      final feeInSol = NetworkConstants.lamportsToSol(baseFee ~/ 1000); // 微lamports转lamports再转SOL
+      
+      debugPrint('Solana 网络费用估算: $feeInSol SOL (基础费用: $baseFee 微lamports)');
+      return feeInSol;
+    } catch (e) {
+      debugPrint('获取Solana费用估算失败: $e');
+      return 0.000005; // 返回默认值
+    }
+  }
+
+  /// 获取比特币网络的费用估算
+  Future<double> _getBitcoinFeeEstimate({double? amount}) async {
+    try {
+      // 比特币费用估算需要调用比特币RPC API
+      // 这里提供简化实现，实际应用中需要调用真实的比特币节点
+      
+      // 模拟获取当前网络费率（satoshi/byte）
+      final feeRate = 10; // 假设当前费率为10 sat/byte
+      final txSize = 250; // 假设交易大小为250字节
+      
+      // 计算费用（satoshi）
+      final feeInSatoshi = feeRate * txSize;
+      
+      // 转换为BTC（使用网络常量）
+      final feeInBtc = NetworkConstants.satoshisToBtc(feeInSatoshi);
+      
+      debugPrint('比特币网络费用估算: $feeInBtc BTC ($feeInSatoshi satoshi)');
+      return feeInBtc;
+    } catch (e) {
+      debugPrint('获取比特币费用估算失败: $e');
+      return 0.0001; // 返回默认值
     }
   }
 

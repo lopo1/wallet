@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'dart:async';
 import '../providers/wallet_provider.dart';
 import '../models/network.dart';
+import '../constants/network_constants.dart';
 
 class SendScreen extends StatefulWidget {
   const SendScreen({super.key});
@@ -11,7 +13,7 @@ class SendScreen extends StatefulWidget {
   State<SendScreen> createState() => _SendScreenState();
 }
 
-class _SendScreenState extends State<SendScreen> {
+class _SendScreenState extends State<SendScreen> with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _addressController = TextEditingController();
   final _amountController = TextEditingController();
@@ -20,27 +22,174 @@ class _SendScreenState extends State<SendScreen> {
   Network? _selectedNetwork;
   String? _selectedRpcUrl;
   bool _isLoading = false;
-  final double _estimatedFee = 0.001; // Mock fee
+  double _estimatedFee = 0.001; // 动态预估费用
   double _priorityFeeMultiplier = 1.0; // 优先费倍数，默认1倍
+  
+  // 添加定时器相关变量
+  Timer? _refreshTimer;
+  Timer? _countdownTimer;
+  int _countdown = 5; // 倒计时秒数
+  late AnimationController _animationController;
+  late Animation<double> _animation;
+  
+  // 费用状态管理
+  ValueNotifier<double>? _feeNotifier;
+  ValueNotifier<int>? _countdownNotifier;
 
   @override
   void initState() {
     super.initState();
+    
+    // 初始化费用通知器和倒计时通知器
+    _feeNotifier = ValueNotifier<double>(_estimatedFee);
+    _countdownNotifier = ValueNotifier<int>(5);
+    
+    // 初始化动画控制器
+    _animationController = AnimationController(
+      duration: const Duration(seconds: 5),
+      vsync: this,
+    );
+    _animation = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.linear),
+    );
+    
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final walletProvider = Provider.of<WalletProvider>(context, listen: false);
       setState(() {
         _selectedNetwork = walletProvider.currentNetwork ?? walletProvider.supportedNetworks.first;
         _selectedRpcUrl = _selectedNetwork?.rpcUrl;
       });
+      
+      // 启动定时器，每5秒刷新一次
+      _startRefreshTimer();
     });
   }
 
   @override
   void dispose() {
+    // 清理定时器和动画控制器
+    _refreshTimer?.cancel();
+    _countdownTimer?.cancel();
+    _animationController.dispose();
+    _feeNotifier?.dispose();
+    _countdownNotifier?.dispose();
     _addressController.dispose();
     _amountController.dispose();
     _memoController.dispose();
     super.dispose();
+  }
+
+  // 启动刷新定时器
+  void _startRefreshTimer() {
+    _refreshTimer?.cancel();
+    _countdownTimer?.cancel();
+    
+    // 重置倒计时
+    _countdown = 5;
+    _countdownNotifier?.value = 5;
+    _animationController.reset();
+    _animationController.forward();
+    
+    // 启动倒计时定时器
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        _countdown--;
+        _countdownNotifier?.value = _countdown;
+        
+        if (_countdown <= 0) {
+          // 倒计时结束，执行刷新
+          _performRefresh();
+          // 重新开始倒计时
+          _countdown = 5;
+          _countdownNotifier?.value = 5;
+          _animationController.reset();
+          _animationController.forward();
+        }
+      }
+    });
+  }
+
+  // 执行刷新操作 - 只刷新费用
+  void _performRefresh() {
+    _updateEstimatedFee();
+    print('自动刷新费用');
+  }
+
+  // 手动刷新 - 刷新余额和费用
+  void _manualRefresh() {
+    // 手动刷新时触发余额重新获取
+    setState(() {
+      // 触发整个页面重新构建以刷新余额
+    });
+    _updateEstimatedFee();
+    // 重新启动定时器
+    _startRefreshTimer();
+    print('手动刷新余额和费用');
+  }
+
+  // 更新预估费用 - 使用真实的RPC调用获取动态费用
+  void _updateEstimatedFee() async {
+    if (_selectedNetwork != null) {
+      try {
+        final walletProvider = Provider.of<WalletProvider>(context, listen: false);
+        
+        // 获取转账金额（如果有输入）
+        final amount = double.tryParse(_amountController.text);
+        
+        // 调用WalletProvider的实时费用估算方法
+        final newFee = await walletProvider.getNetworkFeeEstimate(
+          _selectedNetwork!.id,
+          rpcUrl: _selectedRpcUrl,
+          amount: amount,
+        );
+        
+        debugPrint('获取到实时费用: $newFee ${_selectedNetwork!.symbol}');
+        
+        // 只有费用发生变化时才更新UI，但不触发整个页面重构
+        if ((newFee - _estimatedFee).abs() > NetworkConstants.feeUpdateThreshold) { // 使用网络常量阈值避免微小变化
+          _estimatedFee = newFee;
+          // 只通知费用相关的组件更新，不调用setState避免余额重新加载
+          if (mounted) {
+            // 使用局部更新而不是全局setState
+            _notifyFeeUpdate();
+          }
+        }
+      } catch (e) {
+        debugPrint('获取实时费用失败，使用默认值: $e');
+        // 如果RPC调用失败，使用默认费用
+        double defaultFee;
+        switch (_selectedNetwork!.id) {
+          case NetworkConstants.ethereumNetworkId:
+          case NetworkConstants.bscNetworkId:
+          case NetworkConstants.polygonNetworkId:
+            defaultFee = NetworkConstants.ethereumBaseFee;
+            break;
+          case NetworkConstants.solanaNetworkId:
+            defaultFee = NetworkConstants.solanaBaseFee;
+            break;
+          case NetworkConstants.bitcoinNetworkId:
+            defaultFee = NetworkConstants.bitcoinBaseFee;
+            break;
+          default:
+            defaultFee = NetworkConstants.ethereumBaseFee;
+        }
+        
+        if ((defaultFee - _estimatedFee).abs() > NetworkConstants.feeUpdateThreshold) {
+          _estimatedFee = defaultFee;
+          if (mounted) {
+            _notifyFeeUpdate();
+          }
+        }
+      }
+    }
+  }
+  
+  // 通知费用更新的方法
+  void _notifyFeeUpdate() {
+    // 创建一个ValueNotifier来管理费用状态，避免全局setState
+    if (_feeNotifier != null) {
+      _feeNotifier!.value = _estimatedFee;
+    }
   }
 
   @override
@@ -250,11 +399,7 @@ class _SendScreenState extends State<SendScreen> {
             ),
           ),
           TextButton(
-            onPressed: () {
-              setState(() {
-                // 刷新余额 - 重新构建FutureBuilder
-              });
-            },
+            onPressed: _manualRefresh, // 使用新的手动刷新方法
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -276,6 +421,45 @@ class _SendScreenState extends State<SendScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  // 倒计时圆形进度条组件
+  Widget _buildCountdownIndicator() {
+    return ValueListenableBuilder<int>(
+      valueListenable: _countdownNotifier!,
+      builder: (context, countdown, child) {
+        return AnimatedBuilder(
+          animation: _animation,
+          builder: (context, child) {
+            return Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  width: 32,
+                  height: 32,
+                  child: CircularProgressIndicator(
+                    value: _animation.value,
+                    strokeWidth: 3,
+                    backgroundColor: Colors.grey.shade300,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      countdown <= 1 ? Colors.orange : Colors.blue.shade600,
+                    ),
+                  ),
+                ),
+                Text(
+                  '$countdown',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: countdown <= 1 ? Colors.orange : Colors.blue.shade600,
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -499,10 +683,6 @@ class _SendScreenState extends State<SendScreen> {
     if (_selectedNetwork == null) return const SizedBox.shrink();
     
     final amount = double.tryParse(_amountController.text) ?? 0.0;
-    final actualFee = _selectedNetwork!.id == 'solana' 
-        ? _estimatedFee * _priorityFeeMultiplier 
-        : _estimatedFee;
-    final total = amount + actualFee;
     
     return Container(
       padding: const EdgeInsets.all(16),
@@ -511,23 +691,114 @@ class _SendScreenState extends State<SendScreen> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.shade200),
       ),
-      child: Column(
-        children: [
-          _buildSummaryRow('网络', _selectedNetwork!.name),
-          const SizedBox(height: 8),
-          _buildSummaryRow('金额', '${amount.toStringAsFixed(6)} ${_selectedNetwork!.symbol}'),
-          const SizedBox(height: 8),
-          _buildSummaryRow(
-            _selectedNetwork!.id == 'solana' ? '手续费 (${_priorityFeeMultiplier}x)' : '预估手续费', 
-            '${actualFee.toStringAsFixed(6)} ${_selectedNetwork!.symbol}'
-          ),
-          const Divider(height: 24),
-          _buildSummaryRow(
-            '总计',
-            '${total.toStringAsFixed(6)} ${_selectedNetwork!.symbol}',
-            isTotal: true,
-          ),
-        ],
+      child: ValueListenableBuilder<double>(
+        valueListenable: _feeNotifier!,
+        builder: (context, currentFee, child) {
+          final actualFee = _selectedNetwork!.id == 'solana' 
+              ? currentFee * _priorityFeeMultiplier 
+              : currentFee;
+          final total = amount + actualFee;
+          
+          return Column(
+            children: [
+              _buildSummaryRow('网络', _selectedNetwork!.name),
+              const SizedBox(height: 8),
+              _buildSummaryRow('金额', '${amount.toStringAsFixed(6)} ${_selectedNetwork!.symbol}'),
+              const SizedBox(height: 8),
+              // 预估费用行，带更新指示器和平滑动画
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        _selectedNetwork!.id == 'solana' ? '手续费 (${_priorityFeeMultiplier}x)' : '预估手续费',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.normal,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // 倒计时圆形进度条
+                      _buildCountdownIndicator(),
+                    ],
+                  ),
+                  // 使用AnimatedSwitcher实现费用数字的平滑切换
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    transitionBuilder: (Widget child, Animation<double> animation) {
+                      return FadeTransition(
+                        opacity: animation,
+                        child: child,
+                      );
+                    },
+                    child: Text(
+                      '${actualFee.toStringAsFixed(6)} ${_selectedNetwork!.symbol}',
+                      key: ValueKey(actualFee.toStringAsFixed(6)),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.normal,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const Divider(height: 24),
+              // 总计行，使用平滑动画
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    '总计',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    transitionBuilder: (Widget child, Animation<double> animation) {
+                      return FadeTransition(
+                        opacity: animation,
+                        child: child,
+                      );
+                    },
+                    child: Text(
+                      '${total.toStringAsFixed(6)} ${_selectedNetwork!.symbol}',
+                      key: ValueKey(total.toStringAsFixed(6)),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // 添加费用更新说明
+              Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    size: 14,
+                    color: Colors.grey.shade500,
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      '费用每5秒自动更新，圆形进度条显示刷新倒计时',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -608,10 +879,11 @@ class _SendScreenState extends State<SendScreen> {
     final walletProvider = Provider.of<WalletProvider>(context, listen: false);
     final balance = await walletProvider.getNetworkBalance(_selectedNetwork!.id, rpcUrl: _selectedRpcUrl);
     
-    // 计算实际手续费
+    // 计算实际手续费，使用ValueNotifier中的当前费用值
+    final currentFee = _feeNotifier?.value ?? _estimatedFee;
     final actualFee = _selectedNetwork!.id == 'solana' 
-        ? _estimatedFee * _priorityFeeMultiplier 
-        : _estimatedFee;
+        ? currentFee * _priorityFeeMultiplier 
+        : currentFee;
     
     // 减去实际手续费，确保有足够的余额支付手续费
     final maxAmount = balance - actualFee;
@@ -759,9 +1031,11 @@ class _SendScreenState extends State<SendScreen> {
 
   Future<bool> _showConfirmationDialog() async {
     final amount = double.tryParse(_amountController.text) ?? 0.0;
+    // 使用ValueNotifier中的当前费用值
+    final currentFee = _feeNotifier?.value ?? _estimatedFee;
     final actualFee = _selectedNetwork!.id == 'solana' 
-        ? _estimatedFee * _priorityFeeMultiplier 
-        : _estimatedFee;
+        ? currentFee * _priorityFeeMultiplier 
+        : currentFee;
     final total = amount + actualFee;
     
     return await showDialog<bool>(

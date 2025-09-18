@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'lib/providers/wallet_provider.dart';
 
 void main() async {

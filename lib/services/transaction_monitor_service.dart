@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:solana/solana.dart';
 import 'solana_rpc_service.dart';
 
 enum TransactionStatus {

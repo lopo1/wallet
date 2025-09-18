@@ -12,9 +12,9 @@ class SimpleTestApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return const MaterialApp(
       title: 'Solana Gas费简单测试',
-      home: const SimpleTestScreen(),
+      home: SimpleTestScreen(),
     );
   }
 }

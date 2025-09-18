@@ -314,7 +314,7 @@ class _PriorityFeeTestScreenState extends State<PriorityFeeTestScreen> {
                               Expanded(
                                   flex: 2,
                                   child: Text(
-                                      '${(fee.totalFee / 1000000000).toStringAsFixed(9)}')),
+                                      (fee.totalFee / 1000000000).toStringAsFixed(9))),
                             ],
                           ),
                         );

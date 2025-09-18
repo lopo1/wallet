@@ -134,7 +134,7 @@ class SolanaWalletService implements WalletService {
       int instructionCount = 1; // 仅转账指令
 
       // 获取基础费用（每个签名的费用）
-      final baseFee = _baseFeePerSignature;
+      const baseFee = _baseFeePerSignature;
 
       // 获取网络拥堵信息和推荐的优先费
       final networkInfo = await _getNetworkCongestionInfo();
@@ -356,7 +356,7 @@ class SolanaWalletService implements WalletService {
   /// 获取默认费用
   SolanaTransactionFee _getDefaultFee(SolanaTransactionPriority priority) {
     final priorityFee = _getDefaultPriorityFee(priority);
-    final computeUnits = 150; // 简单转账的计算单元
+    const computeUnits = 150; // 简单转账的计算单元
     final totalPriorityFee = (computeUnits * priorityFee / 1000000).round();
 
     return SolanaTransactionFee(
@@ -473,14 +473,8 @@ class SolanaWalletService implements WalletService {
       // 发送交易，使用自定义RPC调用来设置优先费
       final encodedTx = signedTx.encode();
       List<int> txBytes;
-      if (encodedTx is String) {
-        txBytes = base64Decode(encodedTx);
-      } else if (encodedTx is List<int>) {
-        txBytes = encodedTx as List<int>;
-      } else {
-        throw Exception('不支持的交易编码格式');
-      }
-
+      txBytes = base64Decode(encodedTx);
+    
       final signature = await _sendTransactionWithPriorityFee(
         txBytes,
         feeInfo.computeUnitPrice,

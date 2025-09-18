@@ -1,6 +1,5 @@
 import 'package:flutter_wallet/services/transaction_monitor_service.dart';
 
-import 'package:flutter_wallet/services/transaction_monitor_service.dart';
 
 abstract class WalletService {
   Future<String> createWallet();

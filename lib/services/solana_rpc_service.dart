@@ -218,12 +218,12 @@ class SolanaRpcService {
       
       // 如果找到健康节点，使用它
       if (nodeInfo != null && nodeInfo.isHealthy) {
-        debugPrint('切换到健康RPC节点: ${currentRpcUrl}');
+        debugPrint('切换到健康RPC节点: $currentRpcUrl');
         return;
       }
     } while (_currentRpcIndex != originalIndex);
     
-    debugPrint('切换到RPC节点: ${currentRpcUrl} (无健康节点可用)');
+    debugPrint('切换到RPC节点: $currentRpcUrl (无健康节点可用)');
   }
   
   /// 切换到最佳RPC节点

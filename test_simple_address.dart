@@ -10,7 +10,7 @@ void main() async {
 
   // 生成一个测试助记词
   // final testMnemonic = MnemonicService.generateMnemonic();
-  final testMnemonic =
+  const testMnemonic =
       "what cloth hold life mammal patch aerobic fluid dry lobster ozone ring";
   print('测试助记词: $testMnemonic\n');
 

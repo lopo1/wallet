@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../lib/providers/wallet_provider.dart';
-import '../lib/models/solana_transaction.dart';
+import 'package:flutter_wallet/providers/wallet_provider.dart';
+import 'package:flutter_wallet/models/solana_transaction.dart';
 
 /// Solana Gas费功能使用示例
 class SolanaGasFeeExample extends StatefulWidget {
@@ -350,7 +350,7 @@ class _SolanaGasFeeExampleState extends State<SolanaGasFeeExample> {
             ...SolanaTransactionPriority.values.map((priority) {
               final fee = _feeEstimates![priority]!;
               return _buildFeeRow(priority, fee);
-            }).toList(),
+            }),
           ],
         ),
       ),

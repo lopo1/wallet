@@ -12,9 +12,9 @@ class TestApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return const MaterialApp(
       title: 'Solana Gas费测试',
-      home: const TestScreen(),
+      home: TestScreen(),
     );
   }
 }
