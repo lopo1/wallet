@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/wallet_provider.dart';
 import '../models/wallet.dart';
+import '../models/network.dart';
 
 class Sidebar extends StatefulWidget {
   final Function(bool)? onCollapseChanged;
@@ -146,8 +147,8 @@ class _SidebarState extends State<Sidebar> {
                             addressList != null &&
                             addressList.isNotEmpty &&
                             !_isCollapsed)
-                          ...addressList
-                              .map((address) => _buildAddressDropdown(address)),
+                          ...addressList.map((address) =>
+                              _buildAddressDropdown(address, network)),
                       ],
                     );
                   }).toList(),
@@ -318,7 +319,7 @@ class _SidebarState extends State<Sidebar> {
     );
   }
 
-  Widget _buildAddressDropdown(String address) {
+  Widget _buildAddressDropdown(String address, Network network) {
     return Consumer<WalletProvider>(
       builder: (context, walletProvider, child) {
         final currentWallet = walletProvider.currentWallet;
@@ -329,6 +330,8 @@ class _SidebarState extends State<Sidebar> {
 
         return GestureDetector(
           onTap: () {
+            // 直接使用传入的网络上下文，避免EVM网络地址相同的问题
+            walletProvider.setCurrentNetwork(network);
             walletProvider.setSelectedAddress(address);
           },
           child: Container(
