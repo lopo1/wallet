@@ -287,6 +287,15 @@ class WalletProvider extends ChangeNotifier {
         throw Exception('Invalid mnemonic phrase');
       }
 
+      // Check if mnemonic is already imported
+      final isAlreadyImported =
+          await isMnemonicAlreadyImported(cleanedMnemonic);
+      if (isAlreadyImported) {
+        final existingWalletName =
+            await getWalletNameByMnemonic(cleanedMnemonic);
+        throw Exception('此助记词已经导入过了，钱包名称：$existingWalletName');
+      }
+
       // Create wallet
       final wallet = Wallet(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -667,6 +676,64 @@ class WalletProvider extends ChangeNotifier {
   /// Clean mnemonic phrase by removing extra spaces and normalizing format
   String _cleanMnemonic(String mnemonic) {
     return mnemonic.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  /// Check if a mnemonic has already been imported
+  Future<bool> isMnemonicAlreadyImported(String mnemonic) async {
+    try {
+      final cleanedMnemonic = _cleanMnemonic(mnemonic);
+
+      // Generate the first address for Ethereum network (as a unique identifier)
+      final ethereumNetwork = _supportedNetworks.firstWhere(
+        (network) => network.id == 'ethereum',
+        orElse: () => _supportedNetworks.first,
+      );
+
+      final testAddress =
+          await _generateAddressForNetwork(cleanedMnemonic, ethereumNetwork);
+
+      // Check if any existing wallet has this address
+      for (final wallet in _wallets) {
+        final walletAddresses = wallet.addresses[ethereumNetwork.id];
+        if (walletAddresses != null && walletAddresses.contains(testAddress)) {
+          return true;
+        }
+      }
+
+      return false;
+    } catch (e) {
+      debugPrint('Error checking mnemonic duplication: $e');
+      return false;
+    }
+  }
+
+  /// Get wallet name by mnemonic (if exists)
+  Future<String?> getWalletNameByMnemonic(String mnemonic) async {
+    try {
+      final cleanedMnemonic = _cleanMnemonic(mnemonic);
+
+      // Generate the first address for Ethereum network (as a unique identifier)
+      final ethereumNetwork = _supportedNetworks.firstWhere(
+        (network) => network.id == 'ethereum',
+        orElse: () => _supportedNetworks.first,
+      );
+
+      final testAddress =
+          await _generateAddressForNetwork(cleanedMnemonic, ethereumNetwork);
+
+      // Find wallet with this address
+      for (final wallet in _wallets) {
+        final walletAddresses = wallet.addresses[ethereumNetwork.id];
+        if (walletAddresses != null && walletAddresses.contains(testAddress)) {
+          return wallet.name;
+        }
+      }
+
+      return null;
+    } catch (e) {
+      debugPrint('Error getting wallet name by mnemonic: $e');
+      return null;
+    }
   }
 
   // RPC管理方法

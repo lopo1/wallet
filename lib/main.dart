@@ -6,6 +6,8 @@ import 'providers/theme_provider.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/create_wallet_screen.dart';
+import 'screens/import_wallet_screen.dart';
+import 'screens/import_private_key_screen.dart';
 import 'screens/send_screen.dart';
 import 'screens/receive_screen.dart';
 import 'screens/swap_screen.dart';
@@ -55,6 +57,13 @@ class MyApp extends StatelessWidget {
               '/login': (context) => const LoginScreen(),
               '/home': (context) => const HomeScreen(),
               '/create-wallet': (context) => const CreateWalletScreen(),
+              '/create_wallet': (context) => const CreateWalletScreen(),
+              '/import-wallet': (context) => const ImportWalletScreen(),
+              '/import_wallet': (context) => const ImportWalletScreen(),
+              '/import-private-key': (context) =>
+                  const ImportPrivateKeyScreen(),
+              '/import_private_key': (context) =>
+                  const ImportPrivateKeyScreen(),
               '/send': (context) => const SendScreen(),
               '/receive': (context) => const ReceiveScreen(),
               '/swap': (context) => const SwapScreen(),

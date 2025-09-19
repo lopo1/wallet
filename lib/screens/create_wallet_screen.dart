@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/wallet_provider.dart';
 import '../services/mnemonic_service.dart';
+import '../constants/password_constants.dart';
 
 class CreateWalletScreen extends StatefulWidget {
   const CreateWalletScreen({super.key});
@@ -17,25 +18,26 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _mnemonicController = TextEditingController();
-  
+
   bool _isCreatingNew = true;
   bool _isLoading = false;
   bool _showMnemonic = false;
   bool _mnemonicConfirmed = false;
   int _selectedWordCount = 12;
   String _generatedMnemonic = '';
-  
+
   @override
   void initState() {
     super.initState();
     _generateNewMnemonic();
   }
-  
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     // Check if mode is passed as argument
-    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     if (args != null && args['mode'] != null) {
       final mode = args['mode'] as String;
       if (mode == 'import') {
@@ -49,7 +51,7 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
       }
     }
   }
-  
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -58,16 +60,17 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
     _mnemonicController.dispose();
     super.dispose();
   }
-  
+
   void _generateNewMnemonic() {
     setState(() {
-      _generatedMnemonic = MnemonicService.generateMnemonic(wordCount: _selectedWordCount);
+      _generatedMnemonic =
+          MnemonicService.generateMnemonic(wordCount: _selectedWordCount);
     });
   }
-  
+
   Future<void> _createWallet() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     if (_isCreatingNew && !_mnemonicConfirmed) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -79,14 +82,15 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
       // 滚动到确认复选框位置
       return;
     }
-    
+
     setState(() {
       _isLoading = true;
     });
-    
+
     try {
-      final walletProvider = Provider.of<WalletProvider>(context, listen: false);
-      
+      final walletProvider =
+          Provider.of<WalletProvider>(context, listen: false);
+
       if (_isCreatingNew) {
         await walletProvider.createWallet(
           name: _nameController.text,
@@ -100,17 +104,19 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
           password: _passwordController.text,
         );
       }
-      
+
       if (mounted) {
         // Navigate to home screen after successful wallet creation/import
         Navigator.of(context).pushNamedAndRemoveUntil(
           '/home',
           (route) => false,
         );
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(_isCreatingNew ? 'Wallet created successfully!' : 'Wallet imported successfully!'),
+            content: Text(_isCreatingNew
+                ? 'Wallet created successfully!'
+                : 'Wallet imported successfully!'),
             backgroundColor: Colors.green,
           ),
         );
@@ -132,7 +138,7 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
       }
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -162,108 +168,122 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-              // Toggle between create and import
-              Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2A2D3A),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => setState(() {
-                          _isCreatingNew = true;
-                          _generateNewMnemonic();
-                        }),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        // Toggle between create and import
+                        Container(
                           decoration: BoxDecoration(
-                            color: _isCreatingNew ? const Color(0xFF6366F1) : Colors.transparent,
+                            color: const Color(0xFF2A2D3A),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Text(
-                            'Create New',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: _isCreatingNew ? Colors.white : Colors.white70,
-                              fontWeight: FontWeight.w600,
-                            ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () => setState(() {
+                                    _isCreatingNew = true;
+                                    _generateNewMnemonic();
+                                  }),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 12),
+                                    decoration: BoxDecoration(
+                                      color: _isCreatingNew
+                                          ? const Color(0xFF6366F1)
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      'Create New',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: _isCreatingNew
+                                            ? Colors.white
+                                            : Colors.white70,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () => setState(() {
+                                    _isCreatingNew = false;
+                                  }),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 12),
+                                    decoration: BoxDecoration(
+                                      color: !_isCreatingNew
+                                          ? const Color(0xFF6366F1)
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      'Import Existing',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: !_isCreatingNew
+                                            ? Colors.white
+                                            : Colors.white70,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                    ),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => setState(() {
-                          _isCreatingNew = false;
-                        }),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          decoration: BoxDecoration(
-                            color: !_isCreatingNew ? const Color(0xFF6366F1) : Colors.transparent,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            'Import Existing',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: !_isCreatingNew ? Colors.white : Colors.white70,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                        const SizedBox(height: 32),
+
+                        // Wallet name
+                        _buildTextField(
+                          controller: _nameController,
+                          label: 'Wallet Name',
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter a wallet name';
+                            }
+                            return null;
+                          },
                         ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 32),
-              
-              // Wallet name
-              _buildTextField(
-                controller: _nameController,
-                label: 'Wallet Name',
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter a wallet name';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 24),
-              
-              // Password
-              _buildTextField(
-                controller: _passwordController,
-                label: 'Password',
-                obscureText: true,
-                validator: (value) {
-                  if (value == null || value.length < 8) {
-                    return 'Password must be at least 8 characters';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 24),
-              
-              // Confirm password
-              _buildTextField(
-                controller: _confirmPasswordController,
-                label: 'Confirm Password',
-                obscureText: true,
-                validator: (value) {
-                  if (value != _passwordController.text) {
-                    return 'Passwords do not match';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 32),
-              
-              if (_isCreatingNew) ..._buildCreateWalletSection(),
-              if (!_isCreatingNew) ..._buildImportWalletSection(),
-              
+                        const SizedBox(height: 24),
+
+                        // Password
+                        _buildTextField(
+                          controller: _passwordController,
+                          label: 'Password',
+                          obscureText: true,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return PasswordConstants.passwordEmptyError;
+                            }
+                            if (value.length !=
+                                PasswordConstants.passwordLength) {
+                              return PasswordConstants.passwordLengthError;
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Confirm password
+                        _buildTextField(
+                          controller: _confirmPasswordController,
+                          label: 'Confirm Password',
+                          obscureText: true,
+                          validator: (value) {
+                            if (value != _passwordController.text) {
+                              return 'Passwords do not match';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 32),
+
+                        if (_isCreatingNew) ..._buildCreateWalletSection(),
+                        if (!_isCreatingNew) ..._buildImportWalletSection(),
+
                         const SizedBox(height: 24),
                       ],
                     ),
@@ -291,39 +311,41 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (_isCreatingNew && !_mnemonicConfirmed)
-                     Container(
-                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                       margin: const EdgeInsets.only(bottom: 16),
-                       decoration: BoxDecoration(
-                         color: Colors.orange.withOpacity(0.1),
-                         borderRadius: BorderRadius.circular(8),
-                         border: Border.all(color: Colors.orange, width: 1),
-                       ),
-                       child: const Row(
-                         children: [
-                           Icon(Icons.info_outline, color: Colors.orange, size: 16),
-                           SizedBox(width: 6),
-                           Expanded(
-                             child: Text(
-                               '请向上滚动查看并确认保存助记词',
-                               style: TextStyle(
-                                 color: Colors.orange,
-                                 fontSize: 11,
-                               ),
-                               maxLines: 2,
-                               overflow: TextOverflow.ellipsis,
-                             ),
-                           ),
-                         ],
-                       ),
-                     ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.orange, width: 1),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.info_outline,
+                              color: Colors.orange, size: 16),
+                          SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              '请向上滚动查看并确认保存助记词',
+                              style: TextStyle(
+                                color: Colors.orange,
+                                fontSize: 11,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: _isLoading ? null : _createWallet,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: (_isCreatingNew && !_mnemonicConfirmed) 
-                            ? Colors.grey 
+                        backgroundColor: (_isCreatingNew && !_mnemonicConfirmed)
+                            ? Colors.grey
                             : const Color(0xFF6366F1),
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
@@ -350,7 +372,7 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
       ),
     );
   }
-  
+
   List<Widget> _buildCreateWalletSection() {
     return [
       // Word count selection
@@ -376,17 +398,23 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
-                  color: _selectedWordCount == 12 ? const Color(0xFF6366F1) : const Color(0xFF2A2D3A),
+                  color: _selectedWordCount == 12
+                      ? const Color(0xFF6366F1)
+                      : const Color(0xFF2A2D3A),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: _selectedWordCount == 12 ? const Color(0xFF6366F1) : Colors.transparent,
+                    color: _selectedWordCount == 12
+                        ? const Color(0xFF6366F1)
+                        : Colors.transparent,
                   ),
                 ),
                 child: Text(
                   '12 Words',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: _selectedWordCount == 12 ? Colors.white : Colors.white70,
+                    color: _selectedWordCount == 12
+                        ? Colors.white
+                        : Colors.white70,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -405,17 +433,23 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
-                  color: _selectedWordCount == 24 ? const Color(0xFF6366F1) : const Color(0xFF2A2D3A),
+                  color: _selectedWordCount == 24
+                      ? const Color(0xFF6366F1)
+                      : const Color(0xFF2A2D3A),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: _selectedWordCount == 24 ? const Color(0xFF6366F1) : Colors.transparent,
+                    color: _selectedWordCount == 24
+                        ? const Color(0xFF6366F1)
+                        : Colors.transparent,
                   ),
                 ),
                 child: Text(
                   '24 Words',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: _selectedWordCount == 24 ? Colors.white : Colors.white70,
+                    color: _selectedWordCount == 24
+                        ? Colors.white
+                        : Colors.white70,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -425,37 +459,37 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
         ],
       ),
       const SizedBox(height: 24),
-      
+
       // Mnemonic display
       Row(
-         children: [
-           const Expanded(
-             child: Text(
-               '您的助记词',
-               style: TextStyle(
-                 color: Colors.white,
-                 fontSize: 16,
-                 fontWeight: FontWeight.w600,
-               ),
-             ),
-           ),
-           Container(
-             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-             decoration: BoxDecoration(
-               color: Colors.orange.withOpacity(0.2),
-               borderRadius: BorderRadius.circular(8),
-             ),
-             child: const Text(
-               '重要',
-               style: TextStyle(
-                 color: Colors.orange,
-                 fontSize: 10,
-                 fontWeight: FontWeight.w600,
-               ),
-             ),
-           ),
-         ],
-       ),
+        children: [
+          const Expanded(
+            child: Text(
+              '您的助记词',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Text(
+              '重要',
+              style: TextStyle(
+                color: Colors.orange,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
       const SizedBox(height: 12),
       Container(
         padding: const EdgeInsets.all(16),
@@ -490,7 +524,9 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
               ),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: _showMnemonic ? const Color(0xFF1A1B23) : Colors.grey.withOpacity(0.3),
+                color: _showMnemonic
+                    ? const Color(0xFF1A1B23)
+                    : Colors.grey.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: _showMnemonic
@@ -532,7 +568,8 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: () {
-                        Clipboard.setData(ClipboardData(text: _generatedMnemonic));
+                        Clipboard.setData(
+                            ClipboardData(text: _generatedMnemonic));
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text('助记词已复制'),
@@ -548,7 +585,8 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF6366F1),
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 6, horizontal: 8),
                       ),
                     ),
                   ),
@@ -564,7 +602,8 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF2A2D3A),
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 6, horizontal: 8),
                       ),
                     ),
                   ),
@@ -575,59 +614,65 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
         ),
       ),
       const SizedBox(height: 24),
-      
+
       // Confirmation checkbox with enhanced visibility
       Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: _mnemonicConfirmed ? const Color(0xFF6366F1).withOpacity(0.1) : const Color(0xFF2A2D3A),
+          color: _mnemonicConfirmed
+              ? const Color(0xFF6366F1).withOpacity(0.1)
+              : const Color(0xFF2A2D3A),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: _mnemonicConfirmed ? const Color(0xFF6366F1) : Colors.transparent,
+            color: _mnemonicConfirmed
+                ? const Color(0xFF6366F1)
+                : Colors.transparent,
             width: 2,
           ),
         ),
         child: Row(
-           crossAxisAlignment: CrossAxisAlignment.start,
-           children: [
-             Checkbox(
-               value: _mnemonicConfirmed,
-               onChanged: (value) => setState(() => _mnemonicConfirmed = value ?? false),
-               activeColor: const Color(0xFF6366F1),
-               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-             ),
-             const SizedBox(width: 8),
-             Expanded(
-               child: Column(
-                 crossAxisAlignment: CrossAxisAlignment.start,
-                 children: [
-                   const Text(
-                     '我已安全保存助记词',
-                     style: TextStyle(
-                       color: Colors.white,
-                       fontSize: 14,
-                       fontWeight: FontWeight.w600,
-                     ),
-                   ),
-                   const SizedBox(height: 4),
-                   Text(
-                      '请确保您已将助记词保存在安全的地方',
-                      style: TextStyle(
-                        color: _mnemonicConfirmed ? Colors.white70 : Colors.orange,
-                        fontSize: 11,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Checkbox(
+              value: _mnemonicConfirmed,
+              onChanged: (value) =>
+                  setState(() => _mnemonicConfirmed = value ?? false),
+              activeColor: const Color(0xFF6366F1),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '我已安全保存助记词',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
                     ),
-                 ],
-               ),
-             ),
-           ],
-         ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '请确保您已将助记词保存在安全的地方',
+                    style: TextStyle(
+                      color:
+                          _mnemonicConfirmed ? Colors.white70 : Colors.orange,
+                      fontSize: 11,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     ];
   }
-  
+
   List<Widget> _buildImportWalletSection() {
     return [
       const Text(
@@ -672,7 +717,7 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
       ),
     ];
   }
-  
+
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,

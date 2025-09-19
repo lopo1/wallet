@@ -6,6 +6,7 @@ import '../models/wallet.dart';
 import '../models/network.dart';
 import '../widgets/sidebar.dart';
 import '../services/asset_service.dart';
+import 'transaction_history_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -171,25 +172,36 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildMainContent() {
     final isMobile = MediaQuery.of(context).size.width < 768;
 
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-        isMobile ? 16 : 24, // left
-        isMobile ? 8 : 24, // top - 减少顶部间距
-        isMobile ? 16 : 24, // right
-        isMobile ? 16 : 24, // bottom
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            if (isMobile) _buildMobileHeader() else _buildDesktopHeader(),
-            SizedBox(height: isMobile ? 16 : 24), // 减少间距
-            // Portfolio content
-            _buildPortfolioContent(),
-          ],
+    return Column(
+      children: [
+        // 可滚动的主内容
+        Expanded(
+          child: Container(
+            padding: EdgeInsets.fromLTRB(
+              isMobile ? 16 : 24, // left
+              isMobile ? 8 : 24, // top - 减少顶部间距
+              isMobile ? 16 : 24, // right
+              0, // bottom - 移除底部padding，因为有固定按钮
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header
+                  if (isMobile) _buildMobileHeader() else _buildDesktopHeader(),
+                  SizedBox(height: isMobile ? 16 : 24), // 减少间距
+                  // Portfolio content
+                  _buildPortfolioContent(),
+                  // 添加底部间距，避免内容被固定按钮遮挡
+                  const SizedBox(height: 100),
+                ],
+              ),
+            ),
+          ),
         ),
-      ),
+        // 固定在底部的功能按钮
+        _buildFixedActionButtons(),
+      ],
     );
   }
 
@@ -702,6 +714,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 balance: balance,
                 value: value,
                 color: asset['color'] as Color,
+                assetId: asset['id'] as String,
               );
             },
           );
@@ -717,38 +730,75 @@ class _HomeScreenState extends State<HomeScreen> {
     required double balance,
     required double value,
     required Color color,
+    required String assetId,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 20,
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => TransactionHistoryScreen(
+              assetId: assetId,
+              assetName: name,
+              assetSymbol: symbol,
+              assetColor: color,
+              assetIcon: icon,
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        );
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                color: color,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    symbol,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  name,
+                  _formatBalance(balance),
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 Text(
-                  symbol,
+                  _formatValue(value),
                   style: const TextStyle(
                     fontSize: 12,
                     color: Colors.grey,
@@ -756,27 +806,148 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
+            const SizedBox(width: 8),
+            const Icon(
+              Icons.arrow_forward_ios,
+              size: 16,
+              color: Colors.grey,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFixedActionButtons() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            const Color(0xFF1A1B23).withValues(alpha: 0.0),
+            const Color(0xFF1A1B23).withValues(alpha: 0.8),
+            const Color(0xFF1A1B23),
+          ],
+          stops: const [0.0, 0.3, 1.0],
+        ),
+      ),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
+        decoration: BoxDecoration(
+          color: const Color(0xFF2A2D3A).withValues(alpha: 0.95),
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(24),
+            topRight: Radius.circular(24),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.3),
+              blurRadius: 20,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              Text(
-                _formatBalance(balance),
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+              _buildActionButton(
+                icon: Icons.qr_code,
+                label: '收款',
+                gradientColors: [
+                  const Color(0xFF10B981),
+                  const Color(0xFF059669)
+                ],
+                onTap: () {
+                  Navigator.pushNamed(context, '/receive');
+                },
+              ),
+              _buildActionButton(
+                icon: Icons.send,
+                label: '发送',
+                gradientColors: [
+                  const Color(0xFF6366F1),
+                  const Color(0xFF4F46E5)
+                ],
+                onTap: () {
+                  Navigator.pushNamed(context, '/send');
+                },
+              ),
+              _buildActionButton(
+                icon: Icons.swap_horiz,
+                label: '兑换',
+                gradientColors: [
+                  const Color(0xFFF59E0B),
+                  const Color(0xFFD97706)
+                ],
+                onTap: () {
+                  Navigator.pushNamed(context, '/swap');
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required List<Color> gradientColors,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 6),
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: gradientColors,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: gradientColors.first.withValues(alpha: 0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  color: Colors.white,
+                  size: 20,
                 ),
               ),
+              const SizedBox(height: 8),
               Text(
-                _formatValue(value),
+                label,
                 style: const TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey,
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }

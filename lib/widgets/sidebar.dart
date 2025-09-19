@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/wallet_provider.dart';
+import '../models/wallet.dart';
 
 class Sidebar extends StatefulWidget {
   final Function(bool)? onCollapseChanged;
@@ -23,7 +24,7 @@ class _SidebarState extends State<Sidebar> {
       color: const Color(0xFF2A2D3A),
       child: Column(
         children: [
-          // Header with Ethereum logo and collapse button
+          // Header with wallet selector and collapse button
           Container(
             padding: EdgeInsets.all(_isCollapsed ? 12 : 24),
             child: Row(
@@ -32,18 +33,8 @@ class _SidebarState extends State<Sidebar> {
                   : MainAxisAlignment.spaceBetween,
               children: [
                 if (!_isCollapsed)
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF627EEA),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.currency_bitcoin,
-                      color: Colors.white,
-                      size: 20,
-                    ),
+                  Expanded(
+                    child: _buildWalletSelector(),
                   ),
                 if (!_isCollapsed)
                   GestureDetector(
@@ -67,10 +58,18 @@ class _SidebarState extends State<Sidebar> {
                       });
                       widget.onCollapseChanged?.call(_isCollapsed);
                     },
-                    child: const Icon(
-                      Icons.chevron_right,
-                      color: Colors.white70,
-                      size: 20,
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF627EEA),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.chevron_right,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                     ),
                   ),
               ],
@@ -443,6 +442,336 @@ class _SidebarState extends State<Sidebar> {
     }
   }
 
+  Widget _buildWalletSelector() {
+    return Consumer<WalletProvider>(
+      builder: (context, walletProvider, child) {
+        final wallets = walletProvider.wallets;
+        final currentWallet = walletProvider.currentWallet;
+
+        if (wallets.isEmpty || currentWallet == null) {
+          return Container(
+            width: 32,
+            height: 32,
+            decoration: const BoxDecoration(
+              color: Color(0xFF627EEA),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.currency_bitcoin,
+              color: Colors.white,
+              size: 20,
+            ),
+          );
+        }
+
+        return GestureDetector(
+          onTap: () => _showWalletDropdown(context, walletProvider),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 20,
+                  height: 20,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF627EEA),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.account_balance_wallet,
+                    color: Colors.white,
+                    size: 12,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          currentWallet.name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 3),
+                      CustomPaint(
+                        size: const Size(8, 5),
+                        painter: TrianglePainter(
+                          color: Colors.white70,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showWalletDropdown(
+      BuildContext context, WalletProvider walletProvider) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (BuildContext context) {
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.7,
+          ),
+          decoration: const BoxDecoration(
+            color: Color(0xFF2A2D3A),
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(20),
+              topRight: Radius.circular(20),
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle bar
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(top: 12, bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.white30,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // Title
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  children: [
+                    Text(
+                      '选择钱包',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Wallet list
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: walletProvider.wallets.length,
+                  itemBuilder: (context, index) {
+                    final wallet = walletProvider.wallets[index];
+                    final isSelected =
+                        walletProvider.currentWallet?.id == wallet.id;
+
+                    return _buildWalletItem(
+                      wallet: wallet,
+                      isSelected: isSelected,
+                      onTap: () {
+                        walletProvider.setCurrentWallet(wallet);
+                        Navigator.pop(context);
+                      },
+                    );
+                  },
+                ),
+              ),
+              // Add wallet button
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _showAddWalletOptions(context);
+                        },
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text('添加钱包'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF6366F1),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildWalletItem({
+    required Wallet wallet,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF3A3D4A) : const Color(0xFF1A1B23),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF6366F1) : Colors.white10,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0xFF627EEA).withValues(alpha: 0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.account_balance_wallet,
+                color: Color(0xFF627EEA),
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    wallet.name,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '创建于 ${_formatDate(wallet.createdAt)}',
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (isSelected)
+              const Icon(
+                Icons.check_circle,
+                color: Color(0xFF6366F1),
+                size: 20,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAddWalletOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFF2A2D3A),
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(20),
+              topRight: Radius.circular(20),
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(top: 12, bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.white30,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Text(
+                '添加钱包',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 20),
+              ListTile(
+                leading: const Icon(Icons.add_circle, color: Colors.white70),
+                title:
+                    const Text('创建新钱包', style: TextStyle(color: Colors.white)),
+                subtitle: const Text('生成新的助记词',
+                    style: TextStyle(color: Colors.white70)),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/create_wallet');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.file_download, color: Colors.white70),
+                title:
+                    const Text('导入钱包', style: TextStyle(color: Colors.white)),
+                subtitle: const Text('使用助记词导入',
+                    style: TextStyle(color: Colors.white70)),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/import_wallet');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.vpn_key, color: Colors.white70),
+                title:
+                    const Text('导入私钥', style: TextStyle(color: Colors.white)),
+                subtitle: const Text('使用私钥导入',
+                    style: TextStyle(color: Colors.white70)),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/import_private_key');
+                },
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.year}/${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}';
+  }
+
   void _copyAddress(BuildContext context, String address) {
     Clipboard.setData(ClipboardData(text: address));
     ScaffoldMessenger.of(context).showSnackBar(
@@ -452,4 +781,30 @@ class _SidebarState extends State<Sidebar> {
       ),
     );
   }
+}
+
+/// 自定义三角形绘制器
+class TrianglePainter extends CustomPainter {
+  final Color color;
+
+  TrianglePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+    // 绘制向下的三角形
+    path.moveTo(0, 0); // 左上角
+    path.lineTo(size.width, 0); // 右上角
+    path.lineTo(size.width / 2, size.height); // 底部中心点
+    path.close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }
