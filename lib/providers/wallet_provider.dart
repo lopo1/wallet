@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:bip39/bip39.dart' as bip39;
 import 'package:bip32/bip32.dart' as bip32;
 import 'package:hex/hex.dart';
@@ -19,6 +20,7 @@ import '../services/transaction_monitor_service.dart';
 import '../services/solana_transaction_monitor.dart';
 import '../constants/derivation_paths.dart';
 import '../constants/network_constants.dart';
+import '../models/token.dart';
 
 class WalletProvider extends ChangeNotifier {
   List<Wallet> _wallets = [];
@@ -27,6 +29,7 @@ class WalletProvider extends ChangeNotifier {
   Network? _currentNetwork;
   bool _isLoading = false;
   String? _selectedAddress;
+  List<Token> _customTokens = [];
 
   List<Wallet> get wallets => _wallets;
   Wallet? get currentWallet => _currentWallet;
@@ -34,6 +37,7 @@ class WalletProvider extends ChangeNotifier {
   Network? get currentNetwork => _currentNetwork;
   bool get isLoading => _isLoading;
   String? get selectedAddress => _selectedAddress;
+  List<Token> get customTokens => _customTokens;
 
   final StorageService _storageService = StorageService();
   SolanaWalletService? _solanaWalletService;
@@ -43,6 +47,7 @@ class WalletProvider extends ChangeNotifier {
   WalletProvider() {
     _initializeSupportedNetworks();
     _loadWallets();
+    _loadCustomTokens();
     _initializeSolanaService();
   }
 
@@ -1915,8 +1920,8 @@ class WalletProvider extends ChangeNotifier {
       // 这里提供简化实现，实际应用中需要调用真实的比特币节点
 
       // 模拟获取当前网络费率（satoshi/byte）
-      final feeRate = 10; // 假设当前费率为10 sat/byte
-      final txSize = 250; // 假设交易大小为250字节
+      const feeRate = 10; // 假设当前费率为10 sat/byte
+      const txSize = 250; // 假设交易大小为250字节
 
       // 计算费用（satoshi）
       final feeInSatoshi = feeRate * txSize;
@@ -1929,6 +1934,177 @@ class WalletProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('获取比特币费用估算失败: $e');
       return 0.0001; // 返回默认值
+    }
+  }
+
+  /// 加载自定义代币
+  Future<void> _loadCustomTokens() async {
+    try {
+      final tokensData = await _storageService.getCustomTokens();
+      _customTokens = tokensData.map((data) => Token.fromJson(data)).toList();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('加载自定义代币失败: $e');
+    }
+  }
+
+  /// 添加自定义代币
+  Future<bool> addCustomToken(Token token) async {
+    try {
+      // 检查代币是否已存在
+      final exists = _customTokens.any((t) =>
+          t.address.toLowerCase() == token.address.toLowerCase() &&
+          t.networkId == token.networkId);
+
+      if (exists) {
+        debugPrint('代币已存在: ${token.symbol}');
+        return false;
+      }
+
+      // 添加到列表
+      _customTokens.add(token);
+
+      // 保存到存储
+      await _saveCustomTokens();
+
+      notifyListeners();
+      debugPrint('成功添加代币: ${token.symbol}');
+      return true;
+    } catch (e) {
+      debugPrint('添加代币失败: $e');
+      return false;
+    }
+  }
+
+  /// 移除自定义代币
+  Future<bool> removeCustomToken(Token token) async {
+    try {
+      _customTokens.removeWhere((t) =>
+          t.address.toLowerCase() == token.address.toLowerCase() &&
+          t.networkId == token.networkId);
+
+      await _saveCustomTokens();
+      notifyListeners();
+      debugPrint('成功移除代币: ${token.symbol}');
+      return true;
+    } catch (e) {
+      debugPrint('移除代币失败: $e');
+      return false;
+    }
+  }
+
+  /// 获取指定网络的自定义代币
+  List<Token> getCustomTokensForNetwork(String networkId) {
+    return _customTokens
+        .where((token) => token.networkId == networkId)
+        .toList();
+  }
+
+  /// 获取所有资产（原生代币 + 自定义代币）
+  List<Map<String, dynamic>> getAllAssets() {
+    // 原生代币
+    final nativeAssets = [
+      {
+        'id': 'ethereum',
+        'name': 'Ethereum',
+        'symbol': 'ETH',
+        'icon': Icons.currency_bitcoin,
+        'color': const Color(0xFF627EEA),
+        'price': 2000.0,
+        'isNative': true,
+      },
+      {
+        'id': 'polygon',
+        'name': 'Polygon',
+        'symbol': 'MATIC',
+        'icon': Icons.hexagon,
+        'color': const Color(0xFF8247E5),
+        'price': 0.8,
+        'isNative': true,
+      },
+      {
+        'id': 'bsc',
+        'name': 'BNB',
+        'symbol': 'BNB',
+        'icon': Icons.currency_exchange,
+        'color': const Color(0xFFF3BA2F),
+        'price': 300.0,
+        'isNative': true,
+      },
+      {
+        'id': 'bitcoin',
+        'name': 'Bitcoin',
+        'symbol': 'BTC',
+        'icon': Icons.currency_bitcoin,
+        'color': const Color(0xFFF7931A),
+        'price': 45000.0,
+        'isNative': true,
+      },
+      {
+        'id': 'solana',
+        'name': 'Solana',
+        'symbol': 'SOL',
+        'icon': Icons.wb_sunny,
+        'color': const Color(0xFF9945FF),
+        'price': 100.0,
+        'isNative': true,
+      },
+    ];
+
+    // 自定义代币
+    final customAssets = _customTokens
+        .map((token) => {
+              'id': token.address,
+              'name': token.name,
+              'symbol': token.symbol,
+              'icon': Icons.token,
+              'color': const Color(0xFF6366F1),
+              'price': token.price ?? 0.0,
+              'isNative': false,
+              'networkId': token.networkId,
+              'decimals': token.decimals,
+              'logoUrl': token.logoUrl,
+              'token': token,
+            })
+        .toList();
+
+    return [...nativeAssets, ...customAssets];
+  }
+
+  /// 保存自定义代币到存储
+  Future<void> _saveCustomTokens() async {
+    try {
+      final tokensData = _customTokens.map((token) => token.toJson()).toList();
+      await _storageService.saveCustomTokens(tokensData);
+    } catch (e) {
+      debugPrint('保存自定义代币失败: $e');
+    }
+  }
+
+  /// 刷新代币余额
+  Future<void> refreshTokenBalances() async {
+    if (_currentWallet == null || _currentNetwork == null) return;
+
+    try {
+      final walletAddress = getCurrentNetworkAddress();
+      if (walletAddress == null) return;
+
+      // 刷新自定义代币余额
+      for (final token in _customTokens) {
+        if (token.networkId == _currentNetwork!.id) {
+          // 这里可以调用TokenService来获取代币余额
+          // final balance = await TokenService.getTokenBalance(
+          //   token.address,
+          //   walletAddress,
+          //   token.networkId
+          // );
+          // token = token.copyWith(balance: balance);
+        }
+      }
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint('刷新代币余额失败: $e');
     }
   }
 

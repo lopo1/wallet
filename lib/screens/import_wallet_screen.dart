@@ -405,14 +405,14 @@ class _ImportWalletScreenState extends State<ImportWalletScreen> {
                     border:
                         Border.all(color: Colors.orange.withValues(alpha: 0.3)),
                   ),
-                  child: Row(
+                  child: const Row(
                     children: [
                       Icon(
                         Icons.warning,
                         color: Colors.orange,
                         size: 20,
                       ),
-                      const SizedBox(width: 12),
+                      SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           '请确保您的助记词正确无误，错误的助记词将无法恢复您的钱包。',

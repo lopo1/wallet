@@ -11,6 +11,7 @@ class StorageService {
   static const String _passwordHashKey = 'password_hash';
   static const String _saltKey = 'salt';
   static const String _encryptedMnemonicPrefix = 'encrypted_mnemonic_';
+  static const String _customTokensKey = 'custom_tokens';
 
   Future<List<Wallet>> getWallets() async {
     try {
@@ -345,6 +346,43 @@ class StorageService {
       return storedHash == passwordHash;
     } catch (e) {
       return false;
+    }
+  }
+
+  /// 保存自定义代币
+  Future<void> saveCustomTokens(List<Map<String, dynamic>> tokens) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final tokensJson = tokens.map((token) => json.encode(token)).toList();
+      await prefs.setStringList(_customTokensKey, tokensJson);
+    } catch (e) {
+      debugPrint('保存自定义代币失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 获取自定义代币
+  Future<List<Map<String, dynamic>>> getCustomTokens() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final tokensJson = prefs.getStringList(_customTokensKey) ?? [];
+
+      return tokensJson.map((tokenJson) {
+        return json.decode(tokenJson) as Map<String, dynamic>;
+      }).toList();
+    } catch (e) {
+      debugPrint('获取自定义代币失败: $e');
+      return [];
+    }
+  }
+
+  /// 清除自定义代币
+  Future<void> clearCustomTokens() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_customTokensKey);
+    } catch (e) {
+      debugPrint('清除自定义代币失败: $e');
     }
   }
 }

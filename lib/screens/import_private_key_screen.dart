@@ -324,14 +324,14 @@ class _ImportPrivateKeyScreenState extends State<ImportPrivateKeyScreen> {
                     border:
                         Border.all(color: Colors.red.withValues(alpha: 0.3)),
                   ),
-                  child: Row(
+                  child: const Row(
                     children: [
                       Icon(
                         Icons.security,
                         color: Colors.red,
                         size: 20,
                       ),
-                      const SizedBox(width: 12),
+                      SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           '请确保您的私钥安全，不要与任何人分享。错误的私钥将无法访问您的资产。',
