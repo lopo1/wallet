@@ -7,8 +7,9 @@ import '../models/network.dart';
 
 class Sidebar extends StatefulWidget {
   final Function(bool)? onCollapseChanged;
+  final Function(bool)? onDAppSelectionChanged;
 
-  const Sidebar({super.key, this.onCollapseChanged});
+  const Sidebar({super.key, this.onCollapseChanged, this.onDAppSelectionChanged});
 
   @override
   State<Sidebar> createState() => _SidebarState();
@@ -17,6 +18,7 @@ class Sidebar extends StatefulWidget {
 class _SidebarState extends State<Sidebar> {
   String? _expandedNetworkId;
   bool _isCollapsed = false;
+  bool _isDAppSelected = false;
 
   @override
   Widget build(BuildContext context) {
@@ -164,8 +166,14 @@ class _SidebarState extends State<Sidebar> {
                 _buildBottomItem(
                   icon: Icons.apps,
                   name: 'DApps',
-                  isSelected: true,
+                  isSelected: _isDAppSelected,
                   isCollapsed: _isCollapsed,
+                  onTap: () {
+                    setState(() {
+                      _isDAppSelected = !_isDAppSelected;
+                    });
+                    widget.onDAppSelectionChanged?.call(_isDAppSelected);
+                  },
                 ),
                 const SizedBox(height: 8),
                 _buildBottomItem(

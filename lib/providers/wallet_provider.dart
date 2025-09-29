@@ -1924,7 +1924,7 @@ class WalletProvider extends ChangeNotifier {
       const txSize = 250; // 假设交易大小为250字节
 
       // 计算费用（satoshi）
-      final feeInSatoshi = feeRate * txSize;
+      const feeInSatoshi = feeRate * txSize;
 
       // 转换为BTC（使用网络常量）
       final feeInBtc = NetworkConstants.satoshisToBtc(feeInSatoshi);

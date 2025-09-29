@@ -702,9 +702,9 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
+                    const Text(
                       '点击查看详情',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Colors.white54,
                         fontSize: 10,
                       ),

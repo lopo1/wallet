@@ -5,6 +5,7 @@ import '../widgets/sidebar.dart';
 import '../models/token.dart';
 import '../services/storage_service.dart';
 import 'transaction_history_screen.dart';
+import 'dapp_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -22,6 +23,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _selectedTabIndex = 0; // 0: 资产, 1: 收藏品
   List<Token> _customTokens = [];
   final StorageService _storageService = StorageService();
+  
+  // DApp相关状态
+  int _selectedDAppCategoryIndex = 0; // 0: 推荐, 1: DeFi, 2: NFT, 3: 游戏, 4: 旗, 5: 工具, 6: 牧文
+  final TextEditingController _dappSearchController = TextEditingController();
+  bool _isDAppScreenActive = false; // 是否显示DApp专用屏幕
 
   @override
   void initState() {
@@ -34,6 +40,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _dappSearchController.dispose();
     super.dispose();
   }
 
@@ -236,6 +243,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     });
                     Navigator.of(context).pop(); // 关闭抽屉
                   },
+                  onDAppSelectionChanged: (isSelected) {
+                    setState(() {
+                      _isDAppScreenActive = isSelected;
+                    });
+                  },
                 ),
               ),
             )
@@ -252,6 +264,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       onCollapseChanged: (isCollapsed) {
                         setState(() {
                           _isSidebarCollapsed = isCollapsed;
+                        });
+                      },
+                      onDAppSelectionChanged: (isSelected) {
+                        setState(() {
+                          _isDAppScreenActive = isSelected;
                         });
                       },
                     ),
@@ -279,6 +296,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Widget _buildMainContent() {
     final isMobile = MediaQuery.of(context).size.width < 768;
 
+    // 如果DApp屏幕激活，显示DApp屏幕
+    if (_isDAppScreenActive) {
+      return SizedBox(
+        height: MediaQuery.of(context).size.height - 
+                MediaQuery.of(context).padding.top - 
+                kToolbarHeight,
+        child: const DAppScreen(),
+      );
+    }
+
+    // 否则显示默认的主屏幕内容
     return Column(
       children: [
         // 可滚动的主内容
@@ -347,9 +375,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Text(
-              'Dashboard',
-              style: TextStyle(
+            child: Text(
+              _isDAppScreenActive ? 'DApp' : 'Dashboard',
+              style: const TextStyle(
                 color: Colors.black,
                 fontWeight: FontWeight.w600,
               ),
@@ -385,9 +413,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
           ),
-          child: const Text(
-            'Dashboard',
-            style: TextStyle(
+          child: Text(
+            _isDAppScreenActive ? 'DApp' : 'Dashboard',
+            style: const TextStyle(
               color: Colors.black,
               fontWeight: FontWeight.w600,
             ),
@@ -575,6 +603,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           _buildMobileNetworkCards()
         else
           _buildDesktopNetworkCards(),
+        const SizedBox(height: 24),
+        // DApp section
+        _buildDAppSection(),
         const SizedBox(height: 24),
         // Assets section with tabs and more menu
         _buildAssetsHeader(),
@@ -1662,6 +1693,242 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       default:
         return 0xFF6366F1;
     }
+  }
+
+  /// 构建DApp部分
+  Widget _buildDAppSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // DApp搜索框
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.search,
+                color: Colors.white70,
+                size: 20,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: _dappSearchController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                    hintText: '搜索 DApp名称双语输入框样',
+                    hintStyle: TextStyle(color: Colors.white54),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        // DApp分类标签
+        _buildDAppCategories(),
+        const SizedBox(height: 20),
+        // Features标题
+        const Text(
+          'Features',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 16),
+        // DApp卡片网格
+        _buildDAppCards(),
+      ],
+    );
+  }
+
+  /// 构建DApp分类标签
+  Widget _buildDAppCategories() {
+    final categories = ['推荐', 'DeFi', 'NFT', '游戏', '旗', '工具', '牧文'];
+    
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: categories.asMap().entries.map((entry) {
+          final index = entry.key;
+          final category = entry.value;
+          final isSelected = _selectedDAppCategoryIndex == index;
+          
+          return GestureDetector(
+            onTap: () {
+              setState(() {
+                _selectedDAppCategoryIndex = index;
+              });
+            },
+            child: Container(
+              margin: EdgeInsets.only(right: index < categories.length - 1 ? 12 : 0),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: isSelected ? const Color(0xFF6366F1) : Colors.transparent,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isSelected ? const Color(0xFF6366F1) : Colors.white30,
+                  width: 1,
+                ),
+              ),
+              child: Text(
+                category,
+                style: TextStyle(
+                  color: isSelected ? Colors.white : Colors.white70,
+                  fontSize: 14,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  /// 构建DApp卡片
+  Widget _buildDAppCards() {
+    // 模拟DApp数据
+    final dapps = [
+      {
+        'name': 'Uniswap',
+        'description': 'Decentralized exchange',
+        'icon': Icons.swap_horiz,
+        'color': const Color(0xFFFF007A),
+      },
+      {
+        'name': 'Uniswap',
+        'description': 'Play-to-earn game',
+        'icon': Icons.games,
+        'color': const Color(0xFF00D4FF),
+      },
+      {
+        'name': 'Axie Infinity',
+        'description': 'Play-to-earn',
+        'icon': Icons.pets,
+        'color': const Color(0xFF4A90E2),
+      },
+      {
+        'name': 'Axie Infinity',
+        'description': 'DeFi Network',
+        'icon': Icons.account_balance,
+        'color': const Color(0xFF00C896),
+      },
+      {
+        'name': 'Ralouse',
+        'description': 'Token Network',
+        'icon': Icons.token,
+        'color': const Color(0xFF8B5CF6),
+      },
+      {
+        'name': 'OpenSea',
+        'description': 'Ace Marketplace',
+        'icon': Icons.store,
+        'color': const Color(0xFF2081E2),
+      },
+    ];
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 1.5, // 增加比例，给内容更多空间
+      ),
+      itemCount: dapps.length,
+      itemBuilder: (context, index) {
+        final dapp = dapps[index];
+        return _buildDAppCard(
+          name: dapp['name'] as String,
+          description: dapp['description'] as String,
+          icon: dapp['icon'] as IconData,
+          color: dapp['color'] as Color,
+        );
+      },
+    );
+  }
+
+  /// 构建单个DApp卡片
+  Widget _buildDAppCard({
+    required String name,
+    required String description,
+    required IconData icon,
+    required Color color,
+  }) {
+    return GestureDetector(
+      onTap: () {
+        // 处理DApp点击事件
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('打开 $name'),
+            backgroundColor: color,
+          ),
+        );
+      },
+      child: Container(
+        height: 100, // 固定高度，防止溢出
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.1),
+            width: 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(
+                icon,
+                color: Colors.white,
+                size: 16,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              name,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              description,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 10,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showWalletMenu() {

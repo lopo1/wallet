@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:math';
-import 'dart:typed_data';
 import 'package:bip39/bip39.dart' as bip39;
 import 'package:solana/solana.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
