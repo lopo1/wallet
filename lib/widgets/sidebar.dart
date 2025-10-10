@@ -7,9 +7,8 @@ import '../models/network.dart';
 
 class Sidebar extends StatefulWidget {
   final Function(bool)? onCollapseChanged;
-  final Function(bool)? onDAppSelectionChanged;
 
-  const Sidebar({super.key, this.onCollapseChanged, this.onDAppSelectionChanged});
+  const Sidebar({super.key, this.onCollapseChanged});
 
   @override
   State<Sidebar> createState() => _SidebarState();
@@ -18,7 +17,6 @@ class Sidebar extends StatefulWidget {
 class _SidebarState extends State<Sidebar> {
   String? _expandedNetworkId;
   bool _isCollapsed = false;
-  bool _isDAppSelected = false;
 
   @override
   Widget build(BuildContext context) {
@@ -164,19 +162,6 @@ class _SidebarState extends State<Sidebar> {
             child: Column(
               children: [
                 _buildBottomItem(
-                  icon: Icons.apps,
-                  name: 'DApps',
-                  isSelected: _isDAppSelected,
-                  isCollapsed: _isCollapsed,
-                  onTap: () {
-                    setState(() {
-                      _isDAppSelected = !_isDAppSelected;
-                    });
-                    widget.onDAppSelectionChanged?.call(_isDAppSelected);
-                  },
-                ),
-                const SizedBox(height: 8),
-                _buildBottomItem(
                   icon: Icons.build,
                   name: 'Toolbox',
                   isCollapsed: _isCollapsed,
@@ -188,6 +173,15 @@ class _SidebarState extends State<Sidebar> {
                   isCollapsed: _isCollapsed,
                   onTap: () {
                     Navigator.pushNamed(context, '/solana-fee-estimator');
+                  },
+                ),
+                const SizedBox(height: 8),
+                _buildBottomItem(
+                  icon: Icons.link,
+                  name: 'WalletConnect',
+                  isCollapsed: _isCollapsed,
+                  onTap: () {
+                    Navigator.pushNamed(context, '/walletconnect-sessions');
                   },
                 ),
               ],

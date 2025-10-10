@@ -15,6 +15,12 @@ import 'screens/account_detail_screen.dart';
 import 'screens/solana_fee_estimator_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/add_token_screen.dart';
+import 'screens/walletconnect_sessions_screen.dart';
+import 'screens/dapp_browser_screen.dart';
+
+import 'services/walletconnect_service.dart';
+import 'services/solana_wallet_service.dart';
+import 'services/dapp_connection_service.dart';
 
 void main() {
   runApp(const MyApp());
@@ -29,6 +35,22 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => WalletProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        Provider<SolanaWalletService>(
+          create: (_) =>
+              SolanaWalletService('https://api.mainnet-beta.solana.com'),
+        ),
+        ChangeNotifierProxyProvider2<WalletProvider, SolanaWalletService,
+            WalletConnectService>(
+          create: (context) => WalletConnectService(
+            Provider.of<SolanaWalletService>(context, listen: false),
+            Provider.of<WalletProvider>(context, listen: false),
+          ),
+          update: (context, walletProvider, walletService, previous) =>
+              previous ?? WalletConnectService(walletService, walletProvider),
+        ),
+        ChangeNotifierProvider<DAppConnectionService>(
+          create: (_) => DAppConnectionService(),
+        ),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {
@@ -73,6 +95,9 @@ class MyApp extends StatelessWidget {
                   const SolanaFeeEstimatorScreen(),
               '/settings': (context) => const SettingsScreen(),
               '/add_token': (context) => const AddTokenScreen(),
+              '/walletconnect-sessions': (context) =>
+                  const WalletConnectSessionsScreen(),
+              '/dapp-browser': (context) => const DAppBrowserScreen(),
             },
           );
         },

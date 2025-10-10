@@ -8,7 +8,7 @@
 	<true/>
 	<key>keychain-access-groups</key>
 	<array>
-		<string>$(AppIdentifierPrefix)com.example.flutterWallet</string>
+		<string>$(AppIdentifierPrefix)$(CFBundleIdentifier)</string>
 	</array>
 </dict>
 </plist>

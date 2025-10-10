@@ -8,4 +8,5 @@ abstract class WalletService {
   Future<String> sendTransaction(String mnemonic, String toAddress, double amount);
   Future<double> estimateFee(String mnemonic, String toAddress, double amount);
   Future<TransactionStatus> getTransactionStatus(String signature);
+  Future<List<String>> getAccounts();
 }

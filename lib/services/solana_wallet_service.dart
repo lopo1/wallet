@@ -825,6 +825,14 @@ class SolanaWalletService implements WalletService {
     return null;
   }
 
+  @override
+  Future<List<String>> getAccounts() async {
+    // 返回当前钱包的账户地址列表
+    // 这里可以根据实际需求返回多个账户
+    // 目前返回空列表，实际使用时需要从存储中获取
+    return [];
+  }
+
   List<SolanaTransaction> getPendingTransactions() {
     // Placeholder implementation
     return [];

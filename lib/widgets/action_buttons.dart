@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../screens/send_screen.dart';
+import '../screens/receive_screen.dart';
+
 class ActionButtons extends StatelessWidget {
   const ActionButtons({super.key});
 
@@ -13,7 +16,12 @@ class ActionButtons extends StatelessWidget {
             icon: Icons.arrow_upward,
             color: const Color(0xFF6366F1),
             onTap: () {
-              // TODO: Implement send functionality
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const SendScreen(),
+                ),
+              );
             },
           ),
         ),
@@ -24,7 +32,12 @@ class ActionButtons extends StatelessWidget {
             icon: Icons.arrow_downward,
             color: const Color(0xFF3B82F6),
             onTap: () {
-              // TODO: Implement receive functionality
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const ReceiveScreen(),
+                ),
+              );
             },
           ),
         ),
@@ -36,7 +49,9 @@ class ActionButtons extends StatelessWidget {
             color: Colors.white,
             textColor: Colors.black,
             onTap: () {
-              // TODO: Implement swap functionality
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('兑换功能开发中...')),
+              );
             },
           ),
         ),

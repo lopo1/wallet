@@ -385,4 +385,50 @@ class StorageService {
       debugPrint('清除自定义代币失败: $e');
     }
   }
+
+  /// 通用数据保存方法
+  Future<void> saveData(String key, dynamic data) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonString = json.encode(data);
+      await prefs.setString(key, jsonString);
+    } catch (e) {
+      debugPrint('保存数据失败 ($key): $e');
+      rethrow;
+    }
+  }
+
+  /// 通用数据获取方法
+  Future<dynamic> getData(String key) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonString = prefs.getString(key);
+      if (jsonString == null) return null;
+      return json.decode(jsonString);
+    } catch (e) {
+      debugPrint('获取数据失败 ($key): $e');
+      return null;
+    }
+  }
+
+  /// 通用数据删除方法
+  Future<void> removeData(String key) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(key);
+    } catch (e) {
+      debugPrint('删除数据失败 ($key): $e');
+    }
+  }
+
+  /// 检查数据是否存在
+  Future<bool> hasData(String key) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.containsKey(key);
+    } catch (e) {
+      debugPrint('检查数据存在性失败 ($key): $e');
+      return false;
+    }
+  }
 }
