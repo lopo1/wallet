@@ -486,7 +486,7 @@ class Web3ProviderService {
           detail: {
             info: {
               uuid: 'flutter-wallet-uuid',
-              name: 'Flutter Wallet',
+              name: 'Harbor',
               icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iIzYzNjZGMSIvPgo8L3N2Zz4K',
               rdns: 'com.flutter.wallet'
             },
@@ -775,7 +775,7 @@ class Web3ProviderService {
           detail: {
             info: {
               uuid: 'flutter-wallet-uuid',
-              name: 'Flutter Wallet',
+              name: 'Harbor',
               icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iIzYzNjZGMSIvPgo8L3N2Zz4K',
               rdns: 'com.flutter.wallet'
             },

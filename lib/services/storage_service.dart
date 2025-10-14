@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/wallet.dart';
 import 'encryption_service.dart';
+import '../constants/password_constants.dart';
 
 class StorageService {
   static const String _walletsKey = 'wallets';
@@ -11,6 +12,7 @@ class StorageService {
   static const String _passwordHashKey = 'password_hash';
   static const String _saltKey = 'salt';
   static const String _encryptedMnemonicPrefix = 'encrypted_mnemonic_';
+  static const String _encryptedPrivateKeyPrefix = 'encrypted_private_key_';
   static const String _customTokensKey = 'custom_tokens';
 
   Future<List<Wallet>> getWallets() async {
@@ -39,8 +41,8 @@ class StorageService {
       if (wallet.mnemonic.isEmpty) {
         throw Exception('助记词不能为空');
       }
-      if (password.length != 8) {
-        throw Exception('密码必须是8位');
+      if (password.length != PasswordConstants.passwordLength) {
+        throw Exception(PasswordConstants.passwordLengthError);
       }
 
       final prefs = await SharedPreferences.getInstance();
@@ -108,8 +110,8 @@ class StorageService {
       if (walletId.isEmpty) {
         throw Exception('钱包ID不能为空');
       }
-      if (password.length != 8) {
-        throw Exception('密码必须是8位');
+      if (password.length != PasswordConstants.passwordLength) {
+        throw Exception(PasswordConstants.passwordLengthError);
       }
 
       // 从SharedPreferences中获取加密的助记词
@@ -172,6 +174,9 @@ class StorageService {
 
       // Remove encrypted mnemonic from SharedPreferences
       await prefs.remove('$_encryptedMnemonicPrefix$walletId');
+
+      // Remove encrypted private key if exists
+      await prefs.remove('$_encryptedPrivateKeyPrefix$walletId');
 
       // Remove wallet from wallets list
       final walletsJson = prefs.getStringList(_walletsKey) ?? [];
@@ -346,6 +351,32 @@ class StorageService {
       return storedHash == passwordHash;
     } catch (e) {
       return false;
+    }
+  }
+
+  /// 保存加密的私钥
+  Future<void> savePrivateKey(String walletId, String privateKey, String password) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final encrypted = EncryptionService.encrypt(privateKey, password);
+      await prefs.setString('$_encryptedPrivateKeyPrefix$walletId', encrypted);
+    } catch (e) {
+      debugPrint('保存私钥失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 获取并解密私钥
+  Future<String?> getPrivateKey(String walletId, String password) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final encrypted = prefs.getString('$_encryptedPrivateKeyPrefix$walletId');
+      if (encrypted == null || encrypted.isEmpty) return null;
+      final decrypted = EncryptionService.decrypt(encrypted, password);
+      return decrypted;
+    } catch (e) {
+      debugPrint('获取私钥失败: $e');
+      return null;
     }
   }
 

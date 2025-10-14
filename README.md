@@ -58,8 +58,8 @@
 
 1. **克隆项目**
    ```bash
-   git clone https://github.com/your-username/flutter_wallet.git
-   cd flutter_wallet
+   git clone https://github.com/your-username/harbor.git
+   cd harbor
    ```
 
 2. **安装依赖**
@@ -226,13 +226,13 @@ genhtml coverage/lcov.info -o coverage/html
 
 ## 📞 联系我们
 
-- **项目主页**: [GitHub Repository](https://github.com/your-username/flutter_wallet)
-- **问题反馈**: [Issues](https://github.com/your-username/flutter_wallet/issues)
-- **功能建议**: [Discussions](https://github.com/your-username/flutter_wallet/discussions)
+- **项目主页**: [GitHub Repository](https://github.com/your-username/harbor)
+- **问题反馈**: [Issues](https://github.com/your-username/harbor/issues)
+- **功能建议**: [Discussions](https://github.com/your-username/harbor/discussions)
 
 ---
 
 <div align="center">
   <p>如果这个项目对你有帮助，请给我们一个 ⭐️</p>
-  <p>Made with ❤️ by Flutter Wallet Team</p>
+  <p>Made with ❤️ by Harbor Team</p>
 </div>

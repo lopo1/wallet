@@ -152,7 +152,7 @@ test/
 
 ### 优化前 / Before Optimization
 ```
-flutter_wallet/
+harbor/
 ├── lib/
 ├── test/
 ├── 50+ 散乱的.md文档文件
@@ -162,7 +162,7 @@ flutter_wallet/
 
 ### 优化后 / After Optimization
 ```
-flutter_wallet/
+harbor/
 ├── lib/                      # 源代码
 ├── test/                     # 测试文件（分类组织）
 │   ├── unit/

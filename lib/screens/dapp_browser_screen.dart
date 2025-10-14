@@ -8,6 +8,7 @@ import '../models/network.dart';
 import '../providers/wallet_provider.dart';
 import '../services/dapp_connection_service.dart';
 import '../services/web3_provider_service.dart';
+import '../widgets/bottom_nav_bar.dart';
 
 /// DApp浏览器屏幕
 ///
@@ -698,6 +699,25 @@ class _DAppBrowserScreenState extends State<DAppBrowserScreen> {
           // 底部导航栏
           if (_showWebView) _buildBottomBar(),
         ],
+      ),
+      bottomNavigationBar: BottomNavBar(
+        selectedIndex: 2,
+        onItemSelected: (index) {
+          switch (index) {
+            case 0:
+              Navigator.of(context).pushReplacementNamed('/home');
+              break;
+            case 1:
+              Navigator.of(context).pushReplacementNamed('/swap');
+              break;
+            case 2:
+              // 当前页：发现
+              break;
+            case 3:
+              Navigator.of(context).pushReplacementNamed('/settings');
+              break;
+          }
+        },
       ),
     );
   }

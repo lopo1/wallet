@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../widgets/bottom_nav_bar.dart';
 import '../providers/wallet_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -120,6 +121,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
             ),
+      bottomNavigationBar: BottomNavBar(
+        selectedIndex: 3,
+        onItemSelected: (index) {
+          switch (index) {
+            case 0:
+              Navigator.pushReplacementNamed(context, '/home');
+              break;
+            case 1:
+              Navigator.pushReplacementNamed(context, '/swap');
+              break;
+            case 2:
+              Navigator.pushReplacementNamed(context, '/dapp-browser');
+              break;
+            case 3:
+              // current page
+              break;
+          }
+        },
+      ),
     );
   }
 
@@ -628,7 +648,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Flutter Wallet',
+                'Harbor',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 16,

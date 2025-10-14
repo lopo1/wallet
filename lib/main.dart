@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'screens/home_screen.dart';
 import 'providers/wallet_provider.dart';
 import 'providers/theme_provider.dart';
@@ -9,6 +10,7 @@ import 'screens/create_wallet_screen.dart';
 import 'screens/import_wallet_screen.dart';
 import 'screens/import_private_key_screen.dart';
 import 'screens/send_screen.dart';
+import 'screens/send_detail_screen.dart';
 import 'screens/receive_screen.dart';
 import 'screens/swap_screen.dart';
 import 'screens/account_detail_screen.dart';
@@ -17,6 +19,10 @@ import 'screens/settings_screen.dart';
 import 'screens/add_token_screen.dart';
 import 'screens/walletconnect_sessions_screen.dart';
 import 'screens/dapp_browser_screen.dart';
+import 'screens/reset_password_screen.dart';
+import 'screens/set_new_password_screen.dart';
+import 'screens/confirm_password_screen.dart';
+import 'screens/import_mnemonic_screen.dart';
 
 import 'services/walletconnect_service.dart';
 import 'services/solana_wallet_service.dart';
@@ -55,7 +61,7 @@ class MyApp extends StatelessWidget {
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {
           return MaterialApp(
-            title: 'Flutter Wallet',
+            title: 'Harbor',
             debugShowCheckedModeBanner: false,
             theme: ThemeData(
               useMaterial3: true,
@@ -98,6 +104,19 @@ class MyApp extends StatelessWidget {
               '/walletconnect-sessions': (context) =>
                   const WalletConnectSessionsScreen(),
               '/dapp-browser': (context) => const DAppBrowserScreen(),
+              '/reset-password': (context) => const ResetPasswordScreen(),
+              '/set-new-password': (context) => const SetNewPasswordScreen(),
+              '/confirm-password': (context) => const ConfirmPasswordScreen(),
+              '/import-mnemonic': (context) => const ImportMnemonicScreen(),
+            },
+            onGenerateRoute: (settings) {
+              if (settings.name == '/send_detail') {
+                return MaterialPageRoute(
+                  builder: (context) => const SendDetailScreen(),
+                  settings: settings,
+                );
+              }
+              return null;
             },
           );
         },
@@ -167,13 +186,16 @@ class _WalletInitScreenState extends State<WalletInitScreen> {
               width: 120,
               height: 120,
               decoration: BoxDecoration(
-                color: const Color(0xFF6366F1),
                 borderRadius: BorderRadius.circular(24),
               ),
-              child: const Icon(
-                Icons.account_balance_wallet,
-                size: 60,
-                color: Colors.white,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: SvgPicture.asset(
+                  'assets/images/harbor_logo.svg',
+                  width: 120,
+                  height: 120,
+                  fit: BoxFit.contain,
+                ),
               ),
             ),
             const SizedBox(height: 32),
@@ -186,7 +208,7 @@ class _WalletInitScreenState extends State<WalletInitScreen> {
 
             // Loading text
             Text(
-              _isInitializing ? '正在初始化钱包...' : '正在加载...',
+              _isInitializing ? '正在初始化 Harbor...' : '正在加载...',
               style: const TextStyle(
                 color: Colors.white70,
                 fontSize: 16,

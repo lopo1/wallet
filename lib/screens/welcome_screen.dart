@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
@@ -18,20 +19,23 @@ class WelcomeScreen extends StatelessWidget {
                 width: 120,
                 height: 120,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF6366F1),
                   borderRadius: BorderRadius.circular(24),
                 ),
-                child: const Icon(
-                  Icons.account_balance_wallet,
-                  size: 60,
-                  color: Colors.white,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: SvgPicture.asset(
+                    'assets/images/harbor_logo.svg',
+                    width: 120,
+                    height: 120,
+                    fit: BoxFit.contain,
+                  ),
                 ),
               ),
               const SizedBox(height: 32),
               
               // Welcome Title
               const Text(
-                '欢迎使用钱包',
+                '欢迎使用 Harbor',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 28,
@@ -42,7 +46,7 @@ class WelcomeScreen extends StatelessWidget {
               
               // Subtitle
               const Text(
-                '安全、简单、可靠的数字钱包\n开始您的加密货币之旅',
+                '安全、简单、可靠的 Harbor 钱包\n开始您的加密货币之旅',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.white70,

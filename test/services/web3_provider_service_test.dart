@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_wallet/models/dapp_connection.dart';
-import 'package:flutter_wallet/models/network.dart';
-import 'package:flutter_wallet/models/web3_request.dart';
-import 'package:flutter_wallet/providers/wallet_provider.dart';
-import 'package:flutter_wallet/services/dapp_connection_service.dart';
-import 'package:flutter_wallet/services/storage_service.dart';
-import 'package:flutter_wallet/services/web3_provider_service.dart';
+import 'package:harbor/models/dapp_connection.dart';
+import 'package:harbor/models/network.dart';
+import 'package:harbor/models/web3_request.dart';
+import 'package:harbor/providers/wallet_provider.dart';
+import 'package:harbor/services/dapp_connection_service.dart';
+import 'package:harbor/services/storage_service.dart';
+import 'package:harbor/services/web3_provider_service.dart';
 
 // Mock类用于测试
 class MockWalletProvider extends WalletProvider {

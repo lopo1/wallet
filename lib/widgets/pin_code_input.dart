@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../constants/password_constants.dart';
 
 class PinCodeInput extends StatefulWidget {
   final Function(String) onChanged;
@@ -8,15 +9,17 @@ class PinCodeInput extends StatefulWidget {
   final int length;
   final bool obscureText;
   final TextEditingController? controller;
+  final bool autoFocus;
 
   const PinCodeInput({
     super.key,
     required this.onChanged,
     required this.onCompleted,
     this.validator,
-    this.length = 8,
+    this.length = PasswordConstants.pinCodeLength,
     this.obscureText = true,
     this.controller,
+    this.autoFocus = false,
   });
 
   @override
@@ -62,12 +65,14 @@ class _PinCodeInputState extends State<PinCodeInput>
       widget.controller!.addListener(_onExternalControllerChanged);
     }
 
-    // 设置初始焦点
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_focusNodes.isNotEmpty) {
-        _focusNodes[0].requestFocus();
-      }
-    });
+    // 设置初始焦点（仅在需要时）
+    if (widget.autoFocus) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_focusNodes.isNotEmpty) {
+          _focusNodes[0].requestFocus();
+        }
+      });
+    }
   }
 
   void _onExternalControllerChanged() {
@@ -79,15 +84,17 @@ class _PinCodeInputState extends State<PinCodeInput>
 
   void _updateFromExternalController(String text) {
     setState(() {
-      _currentValue = text;
+      // 保证外部文本不超过组件长度
+      final capped = text.length > widget.length ? text.substring(0, widget.length) : text;
+      _currentValue = capped;
       for (int i = 0; i < widget.length; i++) {
-        if (i < text.length) {
-          _controllers[i].text = text[i];
+        if (i < capped.length) {
+          _controllers[i].text = capped[i];
         } else {
           _controllers[i].clear();
         }
       }
-      _currentIndex = text.length < widget.length ? text.length : widget.length - 1;
+      _currentIndex = capped.length < widget.length ? capped.length : widget.length - 1;
     });
   }
 
@@ -134,7 +141,9 @@ class _PinCodeInputState extends State<PinCodeInput>
   void _updateCurrentValue() {
     _currentValue = _controllers.map((c) => c.text).join();
     widget.onChanged(_currentValue);
-    widget.controller?.text = _currentValue;
+    if (widget.controller != null) {
+      widget.controller!.text = _currentValue;
+    }
     
     if (_currentValue.length == widget.length) {
       widget.onCompleted(_currentValue);
@@ -158,104 +167,117 @@ class _PinCodeInputState extends State<PinCodeInput>
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: List.generate(widget.length, (index) {
-            return AnimatedBuilder(
-              animation: _scaleAnimation,
-              builder: (context, child) {
-                final isCurrentIndex = index == _currentIndex;
-                final scale = isCurrentIndex ? _scaleAnimation.value : 1.0;
-                
-                return Transform.scale(
-                  scale: scale,
-                  child: Container(
-                    width: 45,
-                    height: 55,
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2A2D3A),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: _focusNodes[index].hasFocus
-                            ? const Color(0xFF6366F1)
-                            : _controllers[index].text.isNotEmpty
-                                ? const Color(0xFF10B981)
-                                : Colors.white24,
-                        width: _focusNodes[index].hasFocus ? 2 : 1,
-                      ),
-                      boxShadow: _focusNodes[index].hasFocus
-                          ? [
-                              BoxShadow(
-                                color: const Color(0xFF6366F1).withOpacity(0.3),
-                                blurRadius: 8,
-                                spreadRadius: 0,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final totalWidth = constraints.maxWidth;
+        const spacing = 8.0;
+        final length = widget.length;
+        double cellWidth = (totalWidth - spacing * (length - 1)) / length;
+        cellWidth = cellWidth.clamp(36.0, 52.0);
+        final cellHeight = cellWidth * 1.2;
+        final fontSize = (cellWidth * 0.5).clamp(18.0, 24.0);
+
+        return Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: List.generate(widget.length, (index) {
+                return AnimatedBuilder(
+                  animation: _scaleAnimation,
+                  builder: (context, child) {
+                    final isCurrentIndex = index == _currentIndex;
+                    final scale = isCurrentIndex ? _scaleAnimation.value : 1.0;
+
+                    return Transform.scale(
+                      scale: scale,
+                      child: Container(
+                        width: cellWidth,
+                        height: cellHeight,
+                        margin: EdgeInsets.only(right: index < widget.length - 1 ? spacing : 0),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2A2D3A),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: _focusNodes[index].hasFocus
+                                ? const Color(0xFF6366F1)
+                                : _controllers[index].text.isNotEmpty
+                                    ? const Color(0xFF10B981)
+                                    : Colors.white24,
+                            width: _focusNodes[index].hasFocus ? 2 : 1,
+                          ),
+                          boxShadow: _focusNodes[index].hasFocus
+                              ? [
+                                  BoxShadow(
+                                    color: const Color(0xFF6366F1).withOpacity(0.3),
+                                    blurRadius: 8,
+                                    spreadRadius: 0,
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: Center(
+                          child: KeyboardListener(
+                            focusNode: FocusNode(),
+                            onKeyEvent: (event) => _onKeyEvent(event, index),
+                            child: TextField(
+                              controller: _controllers[index],
+                              focusNode: _focusNodes[index],
+                              textAlign: TextAlign.center,
+                              keyboardType: TextInputType.number,
+                              maxLength: 1,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(1),
+                              ],
+                              obscureText: widget.obscureText,
+                              obscuringCharacter: '●',
+                              style: TextStyle(
+                                color: _focusNodes[index].hasFocus
+                                    ? const Color(0xFF667EEA)
+                                    : const Color(0xFF2D3748),
+                                fontSize: fontSize,
+                                fontWeight: FontWeight.w600,
                               ),
-                            ]
-                          : null,
-                    ),
-                    child: Center(
-                      child: KeyboardListener(
-                        focusNode: FocusNode(),
-                        onKeyEvent: (event) => _onKeyEvent(event, index),
-                        child: TextField(
-                          controller: _controllers[index],
-                          focusNode: _focusNodes[index],
-                          textAlign: TextAlign.center,
-                          keyboardType: TextInputType.text,
-                          maxLength: 1,
-                          obscureText: widget.obscureText,
-                          obscuringCharacter: '●',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            counterText: '',
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                          onChanged: (value) => _onChanged(value, index),
-                          inputFormatters: [
-                            FilteringTextInputFormatter.allow(
-                              RegExp(r'[a-zA-Z0-9!@#\$%^&*()_+\-=\[\]{};:"\|,.<>\?]'),
+                              decoration: const InputDecoration(
+                                border: InputBorder.none,
+                                counterText: '',
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                              onChanged: (value) => _onChanged(value, index),
                             ),
-                          ],
+                          ),
                         ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 );
-              },
-            );
-          }),
-        ),
-        if (widget.validator != null)
-          Container(
-            margin: const EdgeInsets.only(top: 8),
-            child: Builder(
-              builder: (context) {
-                final error = widget.validator!(_currentValue);
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  height: error != null ? 20 : 0,
-                  child: error != null
-                      ? Text(
-                          error,
-                          style: const TextStyle(
-                            color: Colors.red,
-                            fontSize: 12,
-                          ),
-                        )
-                      : const SizedBox.shrink(),
-                );
-              },
+              }),
             ),
-          ),
-      ],
+            if (widget.validator != null)
+              Container(
+                margin: const EdgeInsets.only(top: 8),
+                child: Builder(
+                  builder: (context) {
+                    final error = widget.validator!(_currentValue);
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      height: error != null ? 20 : 0,
+                      child: error != null
+                          ? Text(
+                              error,
+                              style: const TextStyle(
+                                color: Colors.red,
+                                fontSize: 12,
+                              ),
+                            )
+                          : const SizedBox.shrink(),
+                    );
+                  },
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

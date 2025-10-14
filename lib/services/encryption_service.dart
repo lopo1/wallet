@@ -3,6 +3,8 @@ import 'dart:math';
 import 'dart:typed_data';
 import 'package:pointycastle/export.dart';
 
+import '../constants/password_constants.dart';
+
 /// AES加密服务类
 /// 提供安全的对称加密功能，用于助记词等敏感数据的加密存储
 class EncryptionService {
@@ -22,8 +24,8 @@ class EncryptionService {
       if (data.isEmpty) {
         throw const EncryptionException('明文不能为空');
       }
-      if (password.length != 8) {
-        throw const EncryptionException('密码必须是8位');
+      if (password.length != PasswordConstants.passwordLength) {
+        throw const EncryptionException(PasswordConstants.passwordLengthError);
       }
 
       // 生成随机盐值
@@ -71,8 +73,8 @@ class EncryptionService {
       if (encryptedData.isEmpty) {
         throw const EncryptionException('加密数据不能为空');
       }
-      if (password.length != 8) {
-        throw const EncryptionException('密码必须是8位');
+      if (password.length != PasswordConstants.passwordLength) {
+        throw const EncryptionException(PasswordConstants.passwordLengthError);
       }
 
       // 解码Base64数据

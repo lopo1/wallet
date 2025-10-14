@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../providers/wallet_provider.dart';
-import '../widgets/pin_code_input.dart';
-import '../constants/password_constants.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -12,10 +11,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _formKey = GlobalKey<FormState>();
   final _passwordController = TextEditingController();
-  bool _isPasswordVisible = false;
-  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -24,276 +20,275 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
-    if (!_formKey.currentState!.validate()) {
+    if (_passwordController.text.length != 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请输入6位密码')),
+      );
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-    });
-
     try {
-      final walletProvider =
-          Provider.of<WalletProvider>(context, listen: false);
-      final success =
-          await walletProvider.loginWithPassword(_passwordController.text);
-
+      final walletProvider = Provider.of<WalletProvider>(context, listen: false);
+      final success = await walletProvider.loginWithPassword(_passwordController.text);
+      if (!mounted) return;
       if (success) {
-        if (mounted) {
-          Navigator.of(context).pushReplacementNamed('/home');
-        }
+        Navigator.of(context).pushReplacementNamed('/home');
       } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('密码错误，请重试'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('登录失败: $e'),
-            backgroundColor: Colors.red,
-          ),
+          const SnackBar(content: Text('密码错误，请重试')),
         );
       }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('登录失败: $e')),
+      );
     }
+  }
+
+  void _onDigitPress(String d) {
+    if (_passwordController.text.length >= 6) return;
+    _passwordController.text += d;
+    setState(() {});
+    if (_passwordController.text.length == 6) {
+      _login();
+    }
+  }
+
+  void _onDelete() {
+    if (_passwordController.text.isEmpty) return;
+    _passwordController.text = _passwordController.text.substring(0, _passwordController.text.length - 1);
+    setState(() {});
+  }
+
+  Widget _buildKey(String label, {VoidCallback? onTap}) {
+    final bool isDelete = label.toLowerCase() == 'x';
+    if (isDelete) {
+      return Center(
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox(
+            width: 32,
+            height: 22,
+            child: Stack(
+              children: [
+                ClipPath(
+                  clipper: PentagonClipper(),
+                  child: Container(color: Colors.black),
+                ),
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: PentagonBorderPainter(),
+                  ),
+                ),
+                Transform.translate(
+                  offset: const Offset(3, -3),
+                  child: const Center(
+                    child: Text(
+                      'x',
+                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return SizedBox.expand(
+      child: ElevatedButton(
+        onPressed: onTap,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w700),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1B23),
+      resizeToAvoidBottomInset: false,
+      backgroundColor: Colors.black,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight: MediaQuery.of(context).size.height -
-                  MediaQuery.of(context).padding.top -
-                  MediaQuery.of(context).padding.bottom -
-                  48,
-            ),
-            child: IntrinsicHeight(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const Spacer(flex: 1),
-                  // Logo or App Icon
-                  Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF6366F1),
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: const Icon(
-                      Icons.account_balance_wallet,
-                      size: 60,
-                      color: Colors.white,
-                    ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.max,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // 顶部 Logo 和名称
+              const SizedBox(height: 12),
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: SvgPicture.asset(
+                    'assets/images/harbor_logo.svg',
+                    width: 72,
+                    height: 72,
+                    fit: BoxFit.contain,
                   ),
-                  const SizedBox(height: 32),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Harbor',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
 
-                  // Welcome Back Title
-                  const Text(
-                    '欢迎回来',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                    ),
+              // 中间 PIN 输入框（禁用系统键盘）
+              const SizedBox(height: 24),
+              AbsorbPointer(
+                absorbing: true,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1),
                   ),
-                  const SizedBox(height: 16),
-
-                  // Subtitle
-                  const Text(
-                    '请输入密码以解锁您的钱包',
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: TextField(
+                    controller: _passwordController,
+                    obscureText: true,
+                    autofocus: false,
+                    enabled: false, // 禁用系统键盘
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 16,
+                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                    decoration: const InputDecoration(
+                      hintText: '输入密码',
+                      hintStyle: TextStyle(color: Colors.white70),
+                      border: InputBorder.none,
                     ),
                   ),
-                  const SizedBox(height: 48),
+                ),
+              ),
 
-                  // Login Form
-                  Form(
-                    key: _formKey,
-                    child: Column(
-                      children: [
-                        // Password Field - 8位密码输入
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              '请输入您的8位钱包密码',
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 14,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            PinCodeInput(
-                              controller: _passwordController,
-                              length: 8,
-                              obscureText: !_isPasswordVisible,
-                              onChanged: (value) {
-                                // 实时验证
-                                setState(() {});
-                              },
-                              onCompleted: (value) {
-                                // 密码输入完成后自动登录
-                                _login();
-                              },
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return PasswordConstants.passwordEmptyError;
-                                }
-                                if (value.length !=
-                                    PasswordConstants.pinCodeLength) {
-                                  return PasswordConstants.pinCodeLengthError;
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            // 显示/隐藏密码切换按钮
-                            Center(
-                              child: TextButton.icon(
-                                onPressed: () {
-                                  setState(() {
-                                    _isPasswordVisible = !_isPasswordVisible;
-                                  });
-                                },
-                                icon: Icon(
-                                  _isPasswordVisible
-                                      ? Icons.visibility_off
-                                      : Icons.visibility,
-                                  color: Colors.white70,
-                                  size: 18,
-                                ),
-                                label: Text(
-                                  _isPasswordVisible ? '隐藏密码' : '显示密码',
-                                  style: const TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 32),
-
-                        // Login Button
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: _isLoading ? null : _login,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF6366F1),
-                              disabledBackgroundColor:
-                                  const Color(0xFF6366F1).withOpacity(0.5),
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: _isLoading
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                          Colors.white),
-                                    ),
-                                  )
-                                : const Text(
-                                    '解锁钱包',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-
-                  // Forgot Password / Reset Wallet
-                  TextButton(
-                    onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          backgroundColor: const Color(0xFF2A2D3A),
-                          title: const Text(
-                            '重置钱包',
-                            style: TextStyle(color: Colors.white),
-                          ),
-                          content: const Text(
-                            '如果您忘记了密码，需要删除当前钱包并重新创建或导入。\n\n警告：这将删除所有本地数据，请确保您有助记词备份。',
-                            style: TextStyle(color: Colors.white70),
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.of(context).pop(),
-                              child: const Text(
-                                '取消',
-                                style: TextStyle(color: Colors.white70),
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: () async {
-                                Navigator.of(context).pop();
-                                final walletProvider =
-                                    Provider.of<WalletProvider>(context,
-                                        listen: false);
-                                await walletProvider.resetWallet();
-                                if (mounted) {
-                                  Navigator.of(context)
-                                      .pushReplacementNamed('/welcome');
-                                }
-                              },
-                              child: const Text(
-                                '重置',
-                                style: TextStyle(color: Colors.red),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                    child: const Text(
-                      '忘记密码？重置钱包',
-                      style: TextStyle(
-                        color: Color(0xFF6366F1),
-                        fontSize: 14,
+              // 数字键盘
+              const SizedBox(height: 16),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Expanded(child: _buildKey('1', onTap: () => _onDigitPress('1'))),
+                          const SizedBox(width: 8),
+                          Expanded(child: _buildKey('2', onTap: () => _onDigitPress('2'))),
+                          const SizedBox(width: 8),
+                          Expanded(child: _buildKey('3', onTap: () => _onDigitPress('3'))),
+                        ],
                       ),
                     ),
-                  ),
-                  const Spacer(flex: 1),
-                ],
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Expanded(child: _buildKey('4', onTap: () => _onDigitPress('4'))),
+                          const SizedBox(width: 8),
+                          Expanded(child: _buildKey('5', onTap: () => _onDigitPress('5'))),
+                          const SizedBox(width: 8),
+                          Expanded(child: _buildKey('6', onTap: () => _onDigitPress('6'))),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Expanded(child: _buildKey('7', onTap: () => _onDigitPress('7'))),
+                          const SizedBox(width: 8),
+                          Expanded(child: _buildKey('8', onTap: () => _onDigitPress('8'))),
+                          const SizedBox(width: 8),
+                          Expanded(child: _buildKey('9', onTap: () => _onDigitPress('9'))),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Expanded(child: const SizedBox.shrink()),
+                          const SizedBox(width: 8),
+                          Expanded(child: _buildKey('0', onTap: () => _onDigitPress('0'))),
+                          const SizedBox(width: 8),
+                          Expanded(child: _buildKey('x', onTap: _onDelete)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+
+              // 底部重置钱包
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pushNamed('/reset-password');
+                },
+                child: const Text(
+                  '忘记密码？重置钱包',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
+}
+
+class PentagonClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final double w = size.width;
+    final double h = size.height;
+    final double inset = w * 0.12; // 左侧尖角长度略缩小，便于居中
+    final Path p = Path()
+      ..moveTo(inset, 0)
+      ..lineTo(w, 0)
+      ..lineTo(w, h)
+      ..lineTo(inset, h)
+      ..lineTo(0, h / 2)
+      ..close();
+    return p;
+  }
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
+}
+
+class PentagonBorderPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Paint paint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    final Path path = PentagonClipper().getClip(size);
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

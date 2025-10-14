@@ -58,8 +58,8 @@ English | [中文](README.md)
 
 1. **Clone the project**
    ```bash
-   git clone https://github.com/your-username/flutter_wallet.git
-   cd flutter_wallet
+   git clone https://github.com/your-username/harbor.git
+   cd harbor
    ```
 
 2. **Install dependencies**
@@ -226,13 +226,13 @@ Thanks to the following open source projects:
 
 ## 📞 Contact Us
 
-- **Project Homepage**: [GitHub Repository](https://github.com/your-username/flutter_wallet)
-- **Issue Reports**: [Issues](https://github.com/your-username/flutter_wallet/issues)
-- **Feature Requests**: [Discussions](https://github.com/your-username/flutter_wallet/discussions)
+- **Project Homepage**: [GitHub Repository](https://github.com/your-username/harbor)
+- **Issue Reports**: [Issues](https://github.com/your-username/harbor/issues)
+- **Feature Requests**: [Discussions](https://github.com/your-username/harbor/discussions)
 
 ---
 
 <div align="center">
   <p>If this project helps you, please give us a ⭐️</p>
-  <p>Made with ❤️ by Flutter Wallet Team</p>
+  <p>Made with ❤️ by Harbor Team</p>
 </div>

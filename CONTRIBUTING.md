@@ -1,8 +1,8 @@
 # 贡献指南 / Contributing Guide
 
-感谢您对 Flutter Wallet 项目的关注！我们欢迎所有形式的贡献。
+感谢您对 Harbor 项目的关注！我们欢迎所有形式的贡献。
 
-Thank you for your interest in the Flutter Wallet project! We welcome all forms of contributions.
+Thank you for your interest in the Harbor project! We welcome all forms of contributions.
 
 ## 🌟 如何贡献 / How to Contribute
 
@@ -11,8 +11,8 @@ Thank you for your interest in the Flutter Wallet project! We welcome all forms 
 如果您发现了bug或有功能建议，请：
 If you find a bug or have a feature suggestion, please:
 
-1. 检查 [Issues](https://github.com/your-username/flutter_wallet/issues) 确保问题未被报告
-   Check [Issues](https://github.com/your-username/flutter_wallet/issues) to ensure the issue hasn't been reported
+1. 检查 [Issues](https://github.com/your-username/harbor/issues) 确保问题未被报告
+   Check [Issues](https://github.com/your-username/harbor/issues) to ensure the issue hasn't been reported
 2. 创建新的Issue，提供详细信息
    Create a new Issue with detailed information
 3. 使用适当的标签标记问题
@@ -22,7 +22,7 @@ If you find a bug or have a feature suggestion, please:
 
 1. **Fork 项目 / Fork the project**
    ```bash
-   git clone https://github.com/your-username/flutter_wallet.git
+   git clone https://github.com/your-username/harbor.git
    ```
 
 2. **创建功能分支 / Create a feature branch**
@@ -111,7 +111,7 @@ Add unit tests for new features:
 ```dart
 // test/unit/wallet_provider_test.dart
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_wallet/providers/wallet_provider.dart';
+import 'package:harbor/providers/wallet_provider.dart';
 
 void main() {
   group('WalletProvider', () {
@@ -233,8 +233,8 @@ We are committed to providing a friendly, safe and welcoming environment for eve
 If you need help:
 
 - 查看 [文档](docs/) / Check the [documentation](docs/)
-- 搜索现有的 [Issues](https://github.com/your-username/flutter_wallet/issues)
-- 在 [Discussions](https://github.com/your-username/flutter_wallet/discussions) 中提问
+- 搜索现有的 [Issues](https://github.com/your-username/harbor/issues)
+- 在 [Discussions](https://github.com/your-username/harbor/discussions) 中提问
 - 联系维护者 / Contact maintainers
 
 ## 🎉 认可贡献者 / Recognizing Contributors

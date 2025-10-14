@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/wallet_provider.dart';
 import '../models/network.dart';
 import '../services/private_key_service.dart';
+import '../constants/password_constants.dart';
 
 class AccountDetailScreen extends StatefulWidget {
   const AccountDetailScreen({super.key});
@@ -55,10 +56,15 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF0F1117),
       appBar: AppBar(
-        title: const Text('账户详情'),
+        title: const Text(
+          '修改钱包名称',
+          style: TextStyle(color: Colors.white),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
@@ -104,27 +110,28 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: const Color(0xFF1A1B23),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: Colors.white24),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.account_circle, color: Colors.blue),
+              const Icon(Icons.account_circle, color: Colors.white),
               const SizedBox(width: 8),
               const Text(
-                '账户名称',
+                '修改钱包名称',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
+                  color: Colors.white,
                 ),
               ),
               const Spacer(),
               IconButton(
-                icon: Icon(_isEditingName ? Icons.check : Icons.edit),
+                icon: Icon(_isEditingName ? Icons.check : Icons.edit, color: Colors.white),
                 onPressed: () => _toggleNameEditing(walletProvider),
               ),
             ],
@@ -134,16 +141,27 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
               ? TextField(
                   controller: _nameController,
                   decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                    hintText: '输入地址名称',
+                    border: OutlineInputBorder(
+                      borderSide: BorderSide(color: Colors.white24),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Colors.white24),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Color(0xFF6366F1)),
+                    ),
+                    hintText: '输入钱包名称',
+                    hintStyle: TextStyle(color: Colors.white70),
                   ),
+                  style: const TextStyle(color: Colors.white),
                   onSubmitted: (_) => _toggleNameEditing(walletProvider),
                 )
               : Text(
-                  _getCurrentAddressDisplayName(currentWallet, walletProvider),
+                  currentWallet.name,
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w500,
+                    color: Colors.white,
                   ),
                 ),
         ],
@@ -160,6 +178,7 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
+            color: Colors.white,
           ),
         ),
         const SizedBox(height: 12),
@@ -167,13 +186,15 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
+            color: const Color(0xFF1A1B23),
+            border: Border.all(color: Colors.white24),
             borderRadius: BorderRadius.circular(12),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<Network>(
               value: walletProvider.currentNetwork ?? walletProvider.supportedNetworks.first,
               isExpanded: true,
+              dropdownColor: const Color(0xFF1A1B23),
               items: walletProvider.supportedNetworks.map((network) {
                 return DropdownMenuItem<Network>(
                   value: network,
@@ -188,7 +209,10 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      Text(network.name),
+                      Text(
+                        network.name,
+                        style: const TextStyle(color: Colors.white),
+                      ),
                     ],
                   ),
                 );
@@ -217,6 +241,7 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
+                color: Colors.white,
               ),
             ),
             const SizedBox(height: 12),
@@ -224,9 +249,9 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.grey.shade50,
+                color: const Color(0xFF1A1B23),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade200),
+                border: Border.all(color: Colors.white24),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -235,16 +260,29 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
                     '${walletProvider.currentNetwork?.name ?? ''} 地址',
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.grey.shade600,
+                      color: Colors.white70,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  SelectableText(
-                    currentAddress ?? '暂无地址',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontFamily: 'monospace',
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SelectableText(
+                          currentAddress ?? '暂无地址',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontFamily: 'monospace',
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: currentAddress != null
+                            ? () => _copyAddress(currentAddress)
+                            : null,
+                        icon: const Icon(Icons.copy, color: Colors.white70, size: 18),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -259,35 +297,61 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
     return Consumer<WalletProvider>(
       builder: (context, walletProvider, child) {
         final currentAddress = walletProvider.getCurrentNetworkAddress();
+        final wallet = walletProvider.currentWallet;
         return Column(
           children: [
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: currentAddress != null ? () => _copyAddress(currentAddress) : null,
-                icon: const Icon(Icons.copy),
-                label: const Text('复制地址'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+            // 已将复制功能移至地址后方的图标按钮，不再显示文字按钮
+            if (wallet?.importType == 'mnemonic')
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => _exportMnemonic(),
+                  icon: const Icon(Icons.lock_open, color: Colors.orange),
+                  label: const Text(
+                    '导出助记词',
+                    style: TextStyle(color: Colors.orange),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    side: const BorderSide(color: Colors.orange),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              )
+            else
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: currentAddress != null ? () => _exportPrivateKey(currentAddress) : null,
+                  icon: const Icon(Icons.key, color: Colors.orange),
+                  label: const Text(
+                    '导出私钥',
+                    style: TextStyle(color: Colors.orange),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    side: const BorderSide(color: Colors.orange),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),
-            ),
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: currentAddress != null ? () => _exportPrivateKey(currentAddress) : null,
-                icon: const Icon(Icons.key, color: Colors.orange),
+                onPressed: () => _confirmDeleteWallet(),
+                icon: const Icon(Icons.delete_forever, color: Colors.red),
                 label: const Text(
-                  '导出私钥',
-                  style: TextStyle(color: Colors.orange),
+                  '删除钱包',
+                  style: TextStyle(color: Colors.red),
                 ),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  side: const BorderSide(color: Colors.orange),
+                  side: const BorderSide(color: Colors.red),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -302,16 +366,16 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
 
   void _toggleNameEditing(WalletProvider walletProvider) async {
     if (_isEditingName) {
-      // 保存地址名称
+      // 保存钱包名称
       final newName = _nameController.text.trim();
-      final currentAddress = walletProvider.getCurrentNetworkAddress();
-      if (currentAddress != null) {
+      final wallet = walletProvider.currentWallet;
+      if (wallet != null) {
         try {
-          await walletProvider.updateAddressName(currentAddress, newName);
+          await walletProvider.updateWalletName(wallet.id, newName);
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('地址名称更新成功'),
+                content: Text('钱包名称更新成功'),
                 backgroundColor: Colors.green,
               ),
             );
@@ -328,11 +392,10 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
         }
       }
     } else {
-      // 进入编辑模式，设置当前地址名称
-      final currentAddress = walletProvider.getCurrentNetworkAddress();
-      if (currentAddress != null) {
-        final customName = walletProvider.currentWallet?.addressNames[currentAddress];
-        _nameController.text = customName ?? '';
+      // 进入编辑模式，设置当前钱包名称
+      final wallet = walletProvider.currentWallet;
+      if (wallet != null) {
+        _nameController.text = wallet.name;
       }
     }
     setState(() {
@@ -435,6 +498,11 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
                 controller: passwordController,
                 obscureText: true,
                 style: const TextStyle(color: Colors.white),
+                keyboardType: TextInputType.number,
+                inputFormatters: <TextInputFormatter>[
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(PasswordConstants.passwordLength),
+                ],
                 decoration: const InputDecoration(
                   labelText: '密码',
                   labelStyle: TextStyle(color: Colors.white70),
@@ -468,15 +536,13 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
             TextButton(
               onPressed: () async {
                 final password = passwordController.text.trim();
-                if (password.isNotEmpty) {
+                final error = PasswordConstants.validatePassword(password);
+                if (error == null) {
                   Navigator.of(context).pop();
                   await _performPrivateKeyExport(password);
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('请输入密码'),
-                      backgroundColor: Colors.red,
-                    ),
+                    SnackBar(content: Text(error), backgroundColor: Colors.red),
                   );
                 }
               },
@@ -500,18 +566,24 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
         throw Exception('没有可用的钱包或网络');
       }
       
-      // Get mnemonic first
-      final mnemonic = await walletProvider.getWalletMnemonic(
-        currentWallet.id,
-        password,
-      );
-      
-      if (mnemonic == null || mnemonic.isEmpty) {
-        throw Exception('密码错误或助记词获取失败');
+      String? privateKey;
+      if (currentWallet.importType == 'private_key') {
+        // 直接读取加密存储的私钥
+        privateKey = await walletProvider.getWalletPrivateKey(currentWallet.id, password);
+        if (privateKey == null || privateKey.isEmpty) {
+          throw Exception('密码错误或私钥获取失败');
+        }
+      } else {
+        // 助记词导入的钱包，根据助记词生成私钥
+        final mnemonic = await walletProvider.getWalletMnemonic(
+          currentWallet.id,
+          password,
+        );
+        if (mnemonic == null || mnemonic.isEmpty) {
+          throw Exception('密码错误或助记词获取失败');
+        }
+        privateKey = await _generatePrivateKey(mnemonic, walletProvider.currentNetwork!.id);
       }
-      
-      // Generate private key for the selected network
-      final privateKey = await _generatePrivateKey(mnemonic, walletProvider.currentNetwork!.id);
       
       _showPrivateKeyDialog(privateKey);
     } catch (e) {
@@ -531,6 +603,227 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
         ),
       );
     }
+  }
+
+  void _exportMnemonic() {
+    final TextEditingController passwordController = TextEditingController();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1B23),
+          title: const Text(
+            '输入钱包密码',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: passwordController,
+                obscureText: true,
+                style: const TextStyle(color: Colors.white),
+                keyboardType: TextInputType.number,
+                inputFormatters: <TextInputFormatter>[
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(PasswordConstants.passwordLength),
+                ],
+                decoration: const InputDecoration(
+                  labelText: '密码',
+                  labelStyle: TextStyle(color: Colors.white70),
+                  border: OutlineInputBorder(),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.white30),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.orange),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                '导出助记词存在高安全风险，请在安全环境中操作',
+                style: TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('取消', style: TextStyle(color: Colors.white70)),
+            ),
+            TextButton(
+              onPressed: () async {
+                final password = passwordController.text.trim();
+                final error = PasswordConstants.validatePassword(password);
+                if (error != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(error), backgroundColor: Colors.red),
+                  );
+                  return;
+                }
+                final walletProvider = Provider.of<WalletProvider>(context, listen: false);
+                final wallet = walletProvider.currentWallet;
+                if (wallet == null) return;
+                final ok = await walletProvider.verifyPasswordForWallet(wallet.id, password);
+                if (!ok) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('密码错误'), backgroundColor: Colors.red),
+                  );
+                  return;
+                }
+                Navigator.pop(context);
+                await _performMnemonicExport(password);
+              },
+              child: const Text('确认导出', style: TextStyle(color: Colors.orange)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _performMnemonicExport(String password) async {
+    try {
+      final walletProvider = Provider.of<WalletProvider>(context, listen: false);
+      final wallet = walletProvider.currentWallet;
+      if (wallet == null) throw Exception('没有可用的钱包');
+
+      final mnemonic = await walletProvider.getWalletMnemonic(wallet.id, password);
+      if (mnemonic == null || mnemonic.isEmpty) {
+        throw Exception('密码错误或助记词获取失败');
+      }
+      _showMnemonicDialog(mnemonic);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('导出失败: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  void _showMnemonicDialog(String mnemonic) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1B23),
+          title: const Text('助记词', style: TextStyle(color: Colors.white)),
+          content: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.orange.withOpacity(0.3)),
+            ),
+            child: SelectableText(
+              mnemonic,
+              style: const TextStyle(
+                color: Colors.orange,
+                fontSize: 14,
+                fontFamily: 'monospace',
+                height: 1.5,
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: mnemonic));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('助记词已复制'), backgroundColor: Colors.orange),
+                );
+              },
+              child: const Text('复制助记词', style: TextStyle(color: Colors.orange)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('关闭', style: TextStyle(color: Colors.white70)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _confirmDeleteWallet() {
+    final TextEditingController passwordController = TextEditingController();
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1B23),
+          title: const Text('确认删除钱包', style: TextStyle(color: Colors.white)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('删除后将无法恢复，请输入密码确认', style: TextStyle(color: Colors.white70)),
+              const SizedBox(height: 12),
+              TextField(
+                controller: passwordController,
+                obscureText: true,
+                style: const TextStyle(color: Colors.white),
+                keyboardType: TextInputType.number,
+                inputFormatters: <TextInputFormatter>[
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(PasswordConstants.passwordLength),
+                ],
+                decoration: const InputDecoration(
+                  labelText: '密码',
+                  labelStyle: TextStyle(color: Colors.white70),
+                  border: OutlineInputBorder(),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.white30),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.orange),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('取消', style: TextStyle(color: Colors.white70)),
+            ),
+            TextButton(
+              onPressed: () async {
+                final password = passwordController.text.trim();
+                final error = PasswordConstants.validatePassword(password);
+                if (error != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(error), backgroundColor: Colors.red),
+                  );
+                  return;
+                }
+                final walletProvider = Provider.of<WalletProvider>(context, listen: false);
+                final wallet = walletProvider.currentWallet;
+                if (wallet == null) return;
+                final ok = await walletProvider.verifyPasswordForWallet(wallet.id, password);
+                if (!ok) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('密码错误'), backgroundColor: Colors.red),
+                  );
+                  return;
+                }
+                await walletProvider.deleteWallet(wallet.id);
+                if (mounted) {
+                  Navigator.pop(context); // 关闭对话框
+                  Navigator.pop(this.context); // 退出管理页
+                  ScaffoldMessenger.of(this.context).showSnackBar(
+                    const SnackBar(content: Text('钱包已删除'), backgroundColor: Colors.green),
+                  );
+                }
+              },
+              child: const Text('确认删除', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<String> _generatePrivateKey(String mnemonic, String networkId) async {

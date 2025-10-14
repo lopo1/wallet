@@ -6,6 +6,7 @@ class Wallet {
   final Map<String, int> addressIndexes; // networkId -> next index to use
   final Map<String, String> addressNames; // address -> custom name
   final DateTime createdAt;
+  final String importType; // 'mnemonic' | 'private_key'
   
   Wallet({
     required this.id,
@@ -15,8 +16,10 @@ class Wallet {
     Map<String, int>? addressIndexes,
     Map<String, String>? addressNames,
     required this.createdAt,
+    String? importType,
   }) : addressIndexes = addressIndexes ?? {},
-       addressNames = addressNames ?? {};
+       addressNames = addressNames ?? {},
+       importType = importType ?? 'mnemonic';
   
   Map<String, dynamic> toJson() {
     return {
@@ -27,6 +30,7 @@ class Wallet {
       'addressIndexes': addressIndexes,
       'addressNames': addressNames,
       'createdAt': createdAt.toIso8601String(),
+      'importType': importType,
     };
   }
   
@@ -43,6 +47,7 @@ class Wallet {
           ? Map<String, String>.from(json['addressNames'])
           : {},
       createdAt: DateTime.parse(json['createdAt']),
+      importType: json['importType'] ?? 'mnemonic',
     );
   }
   
@@ -54,6 +59,7 @@ class Wallet {
     Map<String, int>? addressIndexes,
     Map<String, String>? addressNames,
     DateTime? createdAt,
+    String? importType,
   }) {
     return Wallet(
       id: id ?? this.id,
@@ -63,6 +69,7 @@ class Wallet {
       addressIndexes: addressIndexes ?? this.addressIndexes,
       addressNames: addressNames ?? this.addressNames,
       createdAt: createdAt ?? this.createdAt,
+      importType: importType ?? this.importType,
     );
   }
 }

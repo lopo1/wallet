@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_wallet/models/dapp_connection.dart';
-import 'package:flutter_wallet/models/web3_request.dart';
-import 'package:flutter_wallet/services/dapp_connection_service.dart';
-import 'package:flutter_wallet/services/storage_service.dart';
+import 'package:harbor/models/dapp_connection.dart';
+import 'package:harbor/models/web3_request.dart';
+import 'package:harbor/services/dapp_connection_service.dart';
+import 'package:harbor/services/storage_service.dart';
 
 // Mock存储服务用于测试
 class MockStorageService extends StorageService {

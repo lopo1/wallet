@@ -1,5 +1,5 @@
-name: flutter_wallet
-description: A decentralized multi-chain wallet built with Flutter
+name: harbor
+description: Harbor — A decentralized multi-chain wallet built with Flutter
 version: 1.0.0+1
 
 environment:

@@ -10,7 +10,7 @@ class WalletConnectConfig {
   static const String projectId = '38d62272a06b73b1f9aab563e46185ae';
   
   /// 应用元数据
-  static const String appName = 'Flutter Wallet';
+  static const String appName = 'Harbor';
   static const String appDescription = 'A decentralized multi-chain wallet';
   static const String appUrl = 'https://flutter-wallet.com';
   static const String appIcon = 'https://flutter-wallet.com/icon.png';

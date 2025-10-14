@@ -3,7 +3,7 @@
 ## 📁 目录结构 / Directory Structure
 
 ```
-flutter_wallet/
+harbor/
 ├── android/                    # Android平台配置
 ├── ios/                       # iOS平台配置
 ├── macos/                     # macOS平台配置
@@ -271,7 +271,7 @@ MaterialApp
 flutter:
   platforms:
     android:
-      package: com.example.flutter_wallet
+      package: com.example.harbor
     ios:
       bundle-id: com.example.flutter-wallet
     macos:

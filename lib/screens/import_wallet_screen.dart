@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/wallet_provider.dart';
 import '../constants/password_constants.dart';
+import 'package:flutter/services.dart';
 
 class ImportWalletScreen extends StatefulWidget {
   const ImportWalletScreen({super.key});
@@ -313,6 +314,11 @@ class _ImportWalletScreenState extends State<ImportWalletScreen> {
                   controller: _passwordController,
                   style: const TextStyle(color: Colors.white),
                   obscureText: _obscurePassword,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: <TextInputFormatter>[
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(PasswordConstants.passwordLength),
+                  ],
                   decoration: InputDecoration(
                     hintText: '输入密码',
                     hintStyle: const TextStyle(color: Colors.white54),
@@ -363,6 +369,11 @@ class _ImportWalletScreenState extends State<ImportWalletScreen> {
                   controller: _confirmPasswordController,
                   style: const TextStyle(color: Colors.white),
                   obscureText: _obscureConfirmPassword,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: <TextInputFormatter>[
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(PasswordConstants.passwordLength),
+                  ],
                   decoration: InputDecoration(
                     hintText: '再次输入密码',
                     hintStyle: const TextStyle(color: Colors.white54),

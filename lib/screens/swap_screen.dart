@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../widgets/bottom_nav_bar.dart';
 import '../providers/wallet_provider.dart';
 import '../models/network.dart';
 
@@ -186,6 +187,25 @@ class _SwapScreenState extends State<SwapScreen> {
               ],
             ),
           );
+        },
+      ),
+      bottomNavigationBar: BottomNavBar(
+        selectedIndex: 1,
+        onItemSelected: (index) {
+          switch (index) {
+            case 0:
+              Navigator.pushReplacementNamed(context, '/home');
+              break;
+            case 1:
+              // current page
+              break;
+            case 2:
+              Navigator.pushReplacementNamed(context, '/dapp-browser');
+              break;
+            case 3:
+              Navigator.pushReplacementNamed(context, '/settings');
+              break;
+          }
         },
       ),
     );

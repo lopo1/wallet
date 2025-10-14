@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:qr_code_scanner/qr_code_scanner.dart';
 import 'package:provider/provider.dart';
 import '../services/walletconnect_service.dart';
 
 class QRScannerScreen extends StatefulWidget {
-  const QRScannerScreen({super.key});
+  final bool isForAddress; // 是否用于地址扫描
+  
+  const QRScannerScreen({super.key, this.isForAddress = false});
 
   @override
   State<QRScannerScreen> createState() => _QRScannerScreenState();
@@ -14,6 +17,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
   final GlobalKey qrKey = GlobalKey(debugLabel: 'QR');
   QRViewController? controller;
   bool _isProcessing = false;
+  bool? _flashStatus = false;
 
   @override
   void reassemble() {
@@ -28,7 +32,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('扫描 WalletConnect QR码'),
+        title: Text(widget.isForAddress ? '扫描地址二维码' : '扫描 WalletConnect QR码'),
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
@@ -38,13 +42,21 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
         actions: [
           IconButton(
             icon: Icon(
-              controller?.getFlashStatus() == true
+              _flashStatus == true
                   ? Icons.flash_on
                   : Icons.flash_off,
             ),
             onPressed: () async {
-              await controller?.toggleFlash();
-              setState(() {});
+              try {
+                await controller?.toggleFlash();
+                final flashStatus = await controller?.getFlashStatus();
+                setState(() {
+                  _flashStatus = flashStatus;
+                });
+              } catch (e) {
+                // 忽略闪光灯错误，不影响扫描功能
+                print('Flash error: $e');
+              }
             },
           ),
         ],
@@ -52,7 +64,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
       body: Column(
         children: [
           Expanded(
-            flex: 4,
+            flex: 5,
             child: Stack(
               children: [
                 QRView(
@@ -86,16 +98,21 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
               ],
             ),
           ),
-          Expanded(
-            flex: 1,
-            child: Container(
-              padding: const EdgeInsets.all(20),
+          Container(
+            constraints: const BoxConstraints(
+              minHeight: 120,
+              maxHeight: 180,
+            ),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
-                    '将相机对准 WalletConnect QR码',
-                    style: TextStyle(
+                  Text(
+                    widget.isForAddress 
+                        ? '将相机对准钱包地址二维码'
+                        : '将相机对准 WalletConnect QR码',
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                     ),
@@ -103,14 +120,16 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '扫描后将自动连接到 DApp',
+                    widget.isForAddress 
+                        ? '扫描后将自动填入收款地址'
+                        : '扫描后将自动连接到 DApp',
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey[600],
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
@@ -119,6 +138,12 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                         label: '相册',
                         onPressed: _pickFromGallery,
                       ),
+                      if (widget.isForAddress)
+                        _buildActionButton(
+                          icon: Icons.edit,
+                          label: '手动输入',
+                          onPressed: _showManualInputDialog,
+                        ),
                       _buildActionButton(
                         icon: Icons.flip_camera_ios,
                         label: '翻转',
@@ -190,6 +215,18 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
       // 暂停相机
       await controller?.pauseCamera();
 
+      // 如果是地址扫描模式，直接返回扫描结果
+      if (widget.isForAddress) {
+        // 震动反馈
+        HapticFeedback.mediumImpact();
+        
+        // 返回扫描到的地址
+        if (mounted) {
+          Navigator.of(context).pop(qrCode);
+        }
+        return;
+      }
+
       // 检查是否是WalletConnect URI
       if (!qrCode.startsWith('wc:')) {
         _showError('无效的 WalletConnect QR码');
@@ -250,6 +287,68 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
   Future<void> _flipCamera() async {
     await controller?.flipCamera();
     setState(() {});
+  }
+
+  void _showManualInputDialog() {
+    final TextEditingController textController = TextEditingController();
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        title: const Text(
+          '手动输入地址',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+        ),
+        content: TextField(
+          controller: textController,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            hintText: '请输入钱包地址',
+            hintStyle: TextStyle(color: Colors.white38),
+            border: OutlineInputBorder(),
+            enabledBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: Colors.white12),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: Color(0xFF6C5CE7)),
+            ),
+          ),
+          maxLines: 3,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              '取消',
+              style: TextStyle(color: Colors.white54),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final address = textController.text.trim();
+              if (address.isNotEmpty) {
+                Navigator.pop(context); // 关闭对话框
+                Navigator.pop(context, address); // 返回地址
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF6C5CE7),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text(
+              '确认',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

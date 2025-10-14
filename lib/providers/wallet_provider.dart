@@ -30,6 +30,7 @@ class WalletProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _selectedAddress;
   List<Token> _customTokens = [];
+  bool _isBalanceHidden = false;
 
   List<Wallet> get wallets => _wallets;
   Wallet? get currentWallet => _currentWallet;
@@ -38,6 +39,7 @@ class WalletProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get selectedAddress => _selectedAddress;
   List<Token> get customTokens => _customTokens;
+  bool get isBalanceHidden => _isBalanceHidden;
 
   final StorageService _storageService = StorageService();
   SolanaWalletService? _solanaWalletService;
@@ -175,6 +177,14 @@ class WalletProvider extends ChangeNotifier {
     return await _storageService.getWalletMnemonic(walletId, password);
   }
 
+  Future<String?> getWalletPrivateKey(String walletId, String password) async {
+    return await _storageService.getPrivateKey(walletId, password);
+  }
+
+  Future<bool> verifyPasswordForWallet(String walletId, String password) async {
+    return await _storageService.verifyPasswordHash(walletId, password);
+  }
+
   /// Login with password for existing wallet
   Future<bool> loginWithPassword(String password) async {
     if (_wallets.isEmpty) {
@@ -308,6 +318,7 @@ class WalletProvider extends ChangeNotifier {
         mnemonic: mnemonic,
         addresses: {},
         createdAt: DateTime.now(),
+        importType: 'mnemonic',
       );
 
       // Generate addresses for all supported networks
@@ -363,6 +374,7 @@ class WalletProvider extends ChangeNotifier {
         addresses: {},
         addressIndexes: {},
         createdAt: DateTime.now(),
+        importType: 'private_key',
       );
 
       // 从私钥生成地址（简化实现）
@@ -377,6 +389,9 @@ class WalletProvider extends ChangeNotifier {
 
       // Save wallet
       await _storageService.saveWallet(wallet, password);
+
+      // 保存加密的私钥以便后续导出
+      await _storageService.savePrivateKey(wallet.id, privateKey, password);
 
       _wallets.add(wallet);
       _currentWallet = wallet;
@@ -2114,5 +2129,11 @@ class WalletProvider extends ChangeNotifier {
     _transactionMonitorService?.dispose();
     _solanaWalletService?.dispose();
     super.dispose();
+  }
+
+  /// 切换余额显示/隐藏
+  void toggleBalanceVisibility() {
+    _isBalanceHidden = !_isBalanceHidden;
+    notifyListeners();
   }
 }

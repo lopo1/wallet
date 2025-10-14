@@ -20,6 +20,8 @@ import 'package:ed25519_hd_key/ed25519_hd_key.dart';
 import '../services/mnemonic_service.dart';
 import '../constants/derivation_paths.dart';
 import 'package:bs58/bs58.dart' as bs58;
+import '../constants/password_constants.dart';
+import 'package:flutter/services.dart';
 
 class WalletConnectService extends ChangeNotifier {
   static const String _sessionKey = 'walletconnect_sessions';
@@ -698,6 +700,11 @@ class WalletConnectService extends ChangeNotifier {
           content: TextField(
             controller: passwordController,
             obscureText: true,
+            keyboardType: TextInputType.number,
+            inputFormatters: <TextInputFormatter>[
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(PasswordConstants.passwordLength),
+            ],
             decoration: const InputDecoration(
               hintText: '请输入钱包密码',
               border: OutlineInputBorder(),
@@ -710,13 +717,14 @@ class WalletConnectService extends ChangeNotifier {
             ),
             ElevatedButton(
               onPressed: () {
-                final password = passwordController.text;
-                if (password.isNotEmpty) {
+                final password = passwordController.text.trim();
+                final error = PasswordConstants.validatePassword(password);
+                if (error == null) {
                   Navigator.of(context).pop(password);
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('密码不能为空'),
+                    SnackBar(
+                      content: Text(error),
                       backgroundColor: Colors.red,
                     ),
                   );

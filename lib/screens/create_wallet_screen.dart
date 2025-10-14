@@ -740,6 +740,13 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
           controller: controller,
           obscureText: obscureText,
           style: const TextStyle(color: Colors.white),
+          keyboardType: obscureText ? TextInputType.number : TextInputType.text,
+          inputFormatters: obscureText
+              ? <TextInputFormatter>[
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(PasswordConstants.passwordLength),
+                ]
+              : null,
           decoration: InputDecoration(
             filled: true,
             fillColor: const Color(0xFF2A2D3A),

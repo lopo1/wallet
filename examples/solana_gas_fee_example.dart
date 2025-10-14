@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_wallet/providers/wallet_provider.dart';
-import 'package:flutter_wallet/models/solana_transaction.dart';
+import 'package:harbor/providers/wallet_provider.dart';
+import 'package:harbor/models/solana_transaction.dart';
 
 /// Solana Gas费功能使用示例
 class SolanaGasFeeExample extends StatefulWidget {
