@@ -981,7 +981,14 @@ class _DAppBrowserScreenState extends State<DAppBrowserScreen> {
       backgroundColor: const Color(0xFF2A2D3A),
       elevation: 0,
       leading: IconButton(
-        onPressed: () => Navigator.of(context).pop(),
+        onPressed: () {
+          // 检查是否可以返回，如果不能则导航到首页
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          } else {
+            Navigator.of(context).pushReplacementNamed('/home');
+          }
+        },
         icon: const Icon(Icons.arrow_back, color: Colors.white),
       ),
       title: Text(

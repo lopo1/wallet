@@ -19,6 +19,8 @@ class _SendScreenState extends State<SendScreen> {
   Map<String, int> _addressCounts = {};
   bool _isLoadingAddressCounts = false;
   final Set<String> _expandedTokens = <String>{}; // 跟踪展开的代币
+  String _selectedNetworkFilter = 'all'; // 选中的网络过滤器
+  bool _showNetworkDropdown = false; // 控制网络下拉菜单显示
 
   @override
   void initState() {
@@ -97,7 +99,16 @@ class _SendScreenState extends State<SendScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return GestureDetector(
+      onTap: () {
+        // 点击空白区域关闭下拉菜单
+        if (_showNetworkDropdown) {
+          setState(() {
+            _showNetworkDropdown = false;
+          });
+        }
+      },
+      child: Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
@@ -215,7 +226,14 @@ class _SendScreenState extends State<SendScreen> {
                             IconButton(
                               icon: const Icon(Icons.arrow_back,
                                   color: Colors.white),
-                              onPressed: () => Navigator.pop(context),
+                              onPressed: () {
+                                // 检查是否可以返回，如果不能则导航到首页
+                                if (Navigator.of(context).canPop()) {
+                                  Navigator.of(context).pop();
+                                } else {
+                                  Navigator.of(context).pushReplacementNamed('/home');
+                                }
+                              },
                             ),
                             const SizedBox(width: 8),
                             const Text(
@@ -229,32 +247,43 @@ class _SendScreenState extends State<SendScreen> {
                           ],
                         ),
                         // 网络选择器
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF1A1A2E),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Colors.white12),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.language,
-                                  color: Colors.white, size: 16),
-                              SizedBox(width: 6),
-                              Text(
-                                '全部网络',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _showNetworkDropdown = !_showNetworkDropdown;
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1A1A2E),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: Colors.white12),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.language,
+                                    color: Colors.white, size: 16),
+                                const SizedBox(width: 6),
+                                Text(
+                                  _getNetworkFilterText(),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
-                              ),
-                              SizedBox(width: 4),
-                              Icon(Icons.keyboard_arrow_down,
-                                  color: Colors.white, size: 16),
-                            ],
+                                const SizedBox(width: 4),
+                                AnimatedRotation(
+                                  turns: _showNetworkDropdown ? 0.5 : 0,
+                                  duration: const Duration(milliseconds: 200),
+                                  child: const Icon(Icons.keyboard_arrow_down,
+                                      color: Colors.white, size: 16),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],
@@ -301,30 +330,32 @@ class _SendScreenState extends State<SendScreen> {
                   ),
                   // 主要内容区域 - 代币列表
                   Expanded(
-                    child: Consumer<WalletProvider>(
-                      builder: (context, walletProvider, child) {
-                        final networks = walletProvider.supportedNetworks;
-                        final filteredNetworks = _searchQuery.isEmpty
-                            ? networks
-                            : networks.where((network) {
-                                return network.name
-                                        .toLowerCase()
-                                        .contains(_searchQuery) ||
-                                    network.symbol
-                                        .toLowerCase()
-                                        .contains(_searchQuery);
-                              }).toList();
+                    child: Stack(
+                      children: [
+                        Consumer<WalletProvider>(
+                          builder: (context, walletProvider, child) {
+                            final networks = walletProvider.supportedNetworks;
+                            final filteredNetworks = _getFilteredNetworks(networks);
 
-                        return ListView.builder(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 8),
-                          itemCount: filteredNetworks.length,
-                          itemBuilder: (context, index) {
-                            return _buildTokenCard(
-                                filteredNetworks[index], walletProvider);
+                            return ListView.builder(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 8),
+                              itemCount: filteredNetworks.length,
+                              itemBuilder: (context, index) {
+                                return _buildTokenCard(
+                                    filteredNetworks[index], walletProvider);
+                              },
+                            );
                           },
-                        );
-                      },
+                        ),
+                        // 网络下拉菜单
+                        if (_showNetworkDropdown)
+                          Positioned(
+                            top: 0,
+                            right: 16,
+                            child: _buildNetworkDropdown(),
+                          ),
+                      ],
                     ),
                   ),
                 ],
@@ -333,6 +364,7 @@ class _SendScreenState extends State<SendScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 
@@ -770,6 +802,136 @@ class _SendScreenState extends State<SendScreen> {
         'network': network,
         'address': address,
       },
+    );
+  }
+
+  // 获取网络过滤器显示文本
+  String _getNetworkFilterText() {
+    switch (_selectedNetworkFilter) {
+      case 'all':
+        return '全部网络';
+      case 'ethereum':
+        return 'Ethereum';
+      case 'bitcoin':
+        return 'Bitcoin';
+      case 'solana':
+        return 'Solana';
+      case 'polygon':
+        return 'Polygon';
+      case 'bsc':
+        return 'BSC';
+      case 'avalanche':
+        return 'Avalanche';
+      case 'arbitrum':
+        return 'Arbitrum';
+      case 'optimism':
+        return 'Optimism';
+      case 'base':
+        return 'Base';
+      case 'tron':
+        return 'Tron';
+      default:
+        return '全部网络';
+    }
+  }
+
+  // 获取过滤后的网络列表
+  List<Network> _getFilteredNetworks(List<Network> networks) {
+    List<Network> filtered = networks;
+
+    // 按网络类型过滤
+    if (_selectedNetworkFilter != 'all') {
+      filtered = filtered.where((network) => network.id == _selectedNetworkFilter).toList();
+    }
+
+    // 按搜索关键词过滤
+    if (_searchQuery.isNotEmpty) {
+      filtered = filtered.where((network) {
+        return network.name.toLowerCase().contains(_searchQuery) ||
+            network.symbol.toLowerCase().contains(_searchQuery);
+      }).toList();
+    }
+
+    return filtered;
+  }
+
+  // 构建网络下拉菜单
+  Widget _buildNetworkDropdown() {
+    final networkOptions = [
+      {'id': 'all', 'name': '全部网络', 'icon': Icons.language},
+      {'id': 'ethereum', 'name': 'Ethereum', 'icon': Icons.currency_bitcoin},
+      {'id': 'bitcoin', 'name': 'Bitcoin', 'icon': Icons.currency_bitcoin},
+      {'id': 'solana', 'name': 'Solana', 'icon': Icons.currency_bitcoin},
+      {'id': 'polygon', 'name': 'Polygon', 'icon': Icons.currency_bitcoin},
+      {'id': 'bsc', 'name': 'BSC', 'icon': Icons.currency_bitcoin},
+      {'id': 'avalanche', 'name': 'Avalanche', 'icon': Icons.currency_bitcoin},
+      {'id': 'arbitrum', 'name': 'Arbitrum', 'icon': Icons.currency_bitcoin},
+      {'id': 'optimism', 'name': 'Optimism', 'icon': Icons.currency_bitcoin},
+      {'id': 'base', 'name': 'Base', 'icon': Icons.currency_bitcoin},
+      {'id': 'tron', 'name': 'Tron', 'icon': Icons.currency_bitcoin},
+    ];
+
+    return Container(
+      width: 160,
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A2E),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: networkOptions.map((option) {
+          final isSelected = _selectedNetworkFilter == option['id'];
+          return Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () {
+                setState(() {
+                  _selectedNetworkFilter = option['id'] as String;
+                  _showNetworkDropdown = false;
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: Row(
+                  children: [
+                    Icon(
+                      option['icon'] as IconData,
+                      color: isSelected ? Colors.blue : Colors.white70,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        option['name'] as String,
+                        style: TextStyle(
+                          color: isSelected ? Colors.blue : Colors.white,
+                          fontSize: 13,
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                        ),
+                      ),
+                    ),
+                    if (isSelected)
+                      const Icon(
+                        Icons.check,
+                        color: Colors.blue,
+                        size: 16,
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
     );
   }
 }

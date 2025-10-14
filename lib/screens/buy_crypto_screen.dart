@@ -138,13 +138,13 @@ class _BuyCryptoScreenState extends State<BuyCryptoScreen> {
         backgroundColor: primaryBackground,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: textPrimary),
+          icon: const Icon(Icons.arrow_back_ios, color: _BuyCryptoScreenState.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
           '购买加密货币',
           style: TextStyle(
-            color: textPrimary,
+            color: _BuyCryptoScreenState.textPrimary,
             fontSize: 20,
             fontWeight: FontWeight.w600,
           ),
@@ -225,7 +225,7 @@ class _BuyCryptoScreenState extends State<BuyCryptoScreen> {
                   ),
                   decoration: const InputDecoration(
                     hintText: '0.00',
-                    hintStyle: TextStyle(color: textSecondary),
+                    hintStyle: TextStyle(color: _BuyCryptoScreenState.textSecondary),
                     border: InputBorder.none,
                   ),
                   validator: (value) {
@@ -338,7 +338,7 @@ class _BuyCryptoScreenState extends State<BuyCryptoScreen> {
                   ),
                   decoration: const InputDecoration(
                     hintText: '0.00',
-                    hintStyle: TextStyle(color: textSecondary),
+                    hintStyle: TextStyle(color: _BuyCryptoScreenState.textSecondary),
                     border: InputBorder.none,
                   ),
                 ),
@@ -597,11 +597,11 @@ class _BuyCryptoScreenState extends State<BuyCryptoScreen> {
                 ),
                 title: Text(
                   currency['name'],
-                  style: const TextStyle(color: textPrimary),
+                  style: const TextStyle(color: _BuyCryptoScreenState.textPrimary),
                 ),
                 subtitle: Text(
                   currency['code'],
-                  style: const TextStyle(color: textSecondary),
+                  style: const TextStyle(color: _BuyCryptoScreenState.textSecondary),
                 ),
                 onTap: () {
                   setState(() {

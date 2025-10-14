@@ -176,7 +176,14 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                         ),
                         IconButton(
                           icon: const Icon(Icons.close, color: Colors.white),
-                          onPressed: () => Navigator.pop(context),
+                          onPressed: () {
+                            // 检查是否可以返回，如果不能则导航到首页
+                            if (Navigator.of(context).canPop()) {
+                              Navigator.of(context).pop();
+                            } else {
+                              Navigator.of(context).pushReplacementNamed('/home');
+                            }
+                          },
                         ),
                       ],
                     ),

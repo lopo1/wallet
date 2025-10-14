@@ -67,7 +67,14 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
         iconTheme: const IconThemeData(color: Colors.white),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            // 检查是否可以返回，如果不能则导航到首页
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              Navigator.of(context).pushReplacementNamed('/home');
+            }
+          },
         ),
       ),
       body: Consumer<WalletProvider>(

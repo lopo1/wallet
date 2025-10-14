@@ -23,6 +23,7 @@ import 'screens/reset_password_screen.dart';
 import 'screens/set_new_password_screen.dart';
 import 'screens/confirm_password_screen.dart';
 import 'screens/import_mnemonic_screen.dart';
+import 'screens/hot_tokens_screen.dart';
 
 import 'services/walletconnect_service.dart';
 import 'services/solana_wallet_service.dart';
@@ -100,7 +101,9 @@ class MyApp extends StatelessWidget {
               '/solana-fee-estimator': (context) =>
                   const SolanaFeeEstimatorScreen(),
               '/settings': (context) => const SettingsScreen(),
+              '/wallet_settings': (context) => const SettingsScreen(),
               '/add_token': (context) => const AddTokenScreen(),
+              '/manage_tokens': (context) => const AddTokenScreen(),
               '/walletconnect-sessions': (context) =>
                   const WalletConnectSessionsScreen(),
               '/dapp-browser': (context) => const DAppBrowserScreen(),
@@ -108,6 +111,7 @@ class MyApp extends StatelessWidget {
               '/set-new-password': (context) => const SetNewPasswordScreen(),
               '/confirm-password': (context) => const ConfirmPasswordScreen(),
               '/import-mnemonic': (context) => const ImportMnemonicScreen(),
+              '/hot-tokens': (context) => const HotTokensScreen(),
             },
             onGenerateRoute: (settings) {
               if (settings.name == '/send_detail') {
