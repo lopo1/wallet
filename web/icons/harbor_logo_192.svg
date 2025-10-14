@@ -1,43 +1,33 @@
 <svg width="192" height="192" viewBox="0 0 192 192" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="shieldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#00D4FF;stop-opacity:1" />
-      <stop offset="50%" style="stop-color:#5B73FF;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#B347FF;stop-opacity:1" />
+    <linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4FC3F7;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#29B6F6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#03A9F4;stop-opacity:1" />
     </linearGradient>
-    <linearGradient id="walletGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#7C3AED;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#3B82F6;stop-opacity:1" />
+    <linearGradient id="gradient2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#29B6F6;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#039BE5;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0288D1;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="gradient3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#03A9F4;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#0288D1;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0277BD;stop-opacity:1" />
     </linearGradient>
   </defs>
   
-  <!-- Shield Background -->
-  <path d="M96 24C96 24 60 36 60 36C60 36 60 96 60 120C60 144 96 168 96 168C96 168 132 144 132 120C132 96 132 36 132 36C132 36 96 24 96 24Z" 
-        fill="url(#shieldGradient)" 
-        stroke="none"/>
+  <!-- Left vertical bar -->
+  <path d="M48 24 L72 24 L96 48 L96 144 L72 168 L48 168 Z" fill="url(#gradient1)"/>
   
-  <!-- Inner Shield -->
-  <path d="M96 36C96 36 72 45 72 45C72 45 72 96 72 114C72 132 96 150 96 150C96 150 120 132 120 114C120 96 120 45 120 45C120 45 96 36 96 36Z" 
-        fill="#1E293B" 
-        opacity="0.9"/>
+  <!-- Right vertical bar -->
+  <path d="M120 24 L144 24 L144 168 L120 168 L96 144 L96 48 Z" fill="url(#gradient1)"/>
   
-  <!-- Wallet Icon -->
-  <g transform="translate(96, 96)">
-    <!-- Wallet Body -->
-    <rect x="-18" y="-9" width="36" height="18" rx="3" ry="3" fill="url(#walletGradient)"/>
-    
-    <!-- Wallet Flap -->
-    <path d="M-18 -9 L-18 -6 L-12 -6 L-12 -9 Z" fill="url(#walletGradient)" opacity="0.8"/>
-    
-    <!-- Arrow Up -->
-    <path d="M-3 -3 L0 -6 L3 -3 L1.5 -3 L1.5 3 L-1.5 3 L-1.5 -3 Z" fill="#FFFFFF"/>
-    
-    <!-- Wallet Details -->
-    <circle cx="9" cy="0" r="2.25" fill="#FFFFFF" opacity="0.3"/>
-    <rect x="-12" y="-3" width="9" height="0.75" rx="0.375" fill="#FFFFFF" opacity="0.5"/>
-    <rect x="-12" y="-1.5" width="6" height="0.75" rx="0.375" fill="#FFFFFF" opacity="0.3"/>
-  </g>
+  <!-- Horizontal connecting bar -->
+  <path d="M72 72 L120 72 L120 96 L96 96 L96 120 L72 120 Z" fill="url(#gradient2)"/>
   
-  <!-- Glow Effect -->
-  <circle cx="96" cy="96" r="75" fill="none" stroke="url(#shieldGradient)" stroke-width="0.75" opacity="0.3"/>
+  <!-- 3D effect shadows -->
+  <path d="M96 48 L120 24 L144 24 L144 48 L120 72 L96 48 Z" fill="url(#gradient3)" opacity="0.8"/>
+  <path d="M72 120 L96 120 L96 144 L72 168 L48 168 L48 144 Z" fill="url(#gradient3)" opacity="0.8"/>
+  <path d="M96 96 L120 72 L120 96 L96 120 Z" fill="url(#gradient3)" opacity="0.6"/>
 </svg>

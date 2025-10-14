@@ -211,15 +211,18 @@ class Web3ProviderService {
 
     // 验证交易参数
     final from = txParams['from'] as String?;
-    // Note: These parameters will be used in future transaction implementation
-    // final to = txParams['to'] as String?;
-    // final value = txParams['value'] as String?;
-    // final data = txParams['data'] as String?;
-    // final gas = txParams['gas'] as String?;
-    // final gasPrice = txParams['gasPrice'] as String?;
+    final to = txParams['to'] as String?;
+    final value = txParams['value'] as String?;
+    final data = txParams['data'] as String?;
+    final gas = txParams['gas'] as String?;
+    final gasPrice = txParams['gasPrice'] as String?;
 
     if (from == null) {
       throw Exception('From address is required');
+    }
+
+    if (to == null) {
+      throw Exception('To address is required');
     }
 
     // 检查地址权限
@@ -233,12 +236,56 @@ class Web3ProviderService {
       throw Exception('Send transaction permission not granted');
     }
 
-    // 这里应该显示交易确认对话框
-    // 暂时返回模拟的交易哈希
-    final txHash = _generateTransactionHash();
+    try {
+      // 解析交易金额
+      double amount = 0.0;
+      if (value != null && value.isNotEmpty) {
+        // 移除 '0x' 前缀并转换为 BigInt
+        final hexValue = value.startsWith('0x') ? value.substring(2) : value;
+        if (hexValue.isNotEmpty) {
+          final weiAmount = BigInt.parse(hexValue, radix: 16);
+          // 转换为以太币（1 ETH = 10^18 Wei）
+          amount = weiAmount.toDouble() / BigInt.from(10).pow(18).toDouble();
+        }
+      }
 
-    debugPrint('Transaction sent: $txHash');
-    return txHash;
+      // 获取当前网络ID
+      // 注意：这里需要从外部传入 WalletProvider 或通过其他方式获取
+      // 暂时使用默认值
+      final networkId = 'ethereum';
+
+      debugPrint('=== DApp 交易请求 ===');
+      debugPrint('来源: $_currentOrigin');
+      debugPrint('网络: $networkId');
+      debugPrint('发送地址: $from');
+      debugPrint('接收地址: $to');
+      debugPrint('金额: $amount');
+      debugPrint('数据: $data');
+      debugPrint('Gas: $gas');
+      debugPrint('Gas价格: $gasPrice');
+
+      // 这里应该显示交易确认对话框，让用户确认并输入密码
+      // 由于这是一个服务类，无法直接显示UI
+      // 实际实现应该通过回调或事件通知UI层显示确认对话框
+
+      // 暂时抛出异常，提示需要用户确认
+      throw Exception('需要用户确认交易 - 请在钱包UI中实现交易确认对话框');
+
+      // 实际实现应该是：
+      // 1. 通过回调通知UI层显示交易确认对话框
+      // 2. 用户确认并输入密码
+      // 3. 调用 WalletProvider 的 sendTransaction 方法
+      // final txHash = await walletProvider.sendTransaction(
+      //   networkId: networkId,
+      //   toAddress: to,
+      //   amount: amount,
+      //   password: password, // 从用户输入获取
+      // );
+      // return txHash;
+    } catch (e) {
+      debugPrint('处理发送交易请求失败: $e');
+      rethrow;
+    }
   }
 
   /// 处理个人签名

@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
-import '../models/token.dart';
+import 'package:decimal/decimal.dart';
 import '../models/network.dart';
 import '../providers/wallet_provider.dart';
-import '../services/solana_wallet_service.dart';
-import '../services/token_service.dart';
+import '../utils/amount_utils.dart';
 import 'qr_scanner_screen.dart';
 
 class SendDetailScreen extends StatefulWidget {
@@ -16,17 +14,18 @@ class SendDetailScreen extends StatefulWidget {
   State<SendDetailScreen> createState() => _SendDetailScreenState();
 }
 
-class _SendDetailScreenState extends State<SendDetailScreen> with TickerProviderStateMixin {
+class _SendDetailScreenState extends State<SendDetailScreen>
+    with TickerProviderStateMixin {
   final TextEditingController _recipientController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _memoController = TextEditingController();
   final TextEditingController _searchController = TextEditingController();
-  
+
   Timer? _gasRefreshTimer;
   Timer? _countdownTimer;
   late AnimationController _progressAnimationController;
   late Animation<double> _progressAnimation;
-  
+
   Network? network;
   String? address;
   double balance = 2.22;
@@ -35,19 +34,20 @@ class _SendDetailScreenState extends State<SendDetailScreen> with TickerProvider
   List<Map<String, String>> contacts = [];
   List<Map<String, String>> filteredContacts = [];
   bool isLoading = false;
-  
-  int _gasRefreshCountdown = 8; // 倒计时秒数
+  bool _gasFeeLocked = false; // Gas 费用锁定标志
+
+  int _gasRefreshCountdown = 10; // 倒计时秒数
 
   @override
   void initState() {
     super.initState();
-    
+
     // 初始化动画控制器
     _progressAnimationController = AnimationController(
       duration: const Duration(seconds: 8),
       vsync: this,
     );
-    
+
     _progressAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
@@ -55,9 +55,10 @@ class _SendDetailScreenState extends State<SendDetailScreen> with TickerProvider
       parent: _progressAnimationController,
       curve: Curves.linear,
     ));
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      final args =
+          ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
       if (args != null) {
         setState(() {
           network = args['network'] as Network?;
@@ -82,57 +83,64 @@ class _SendDetailScreenState extends State<SendDetailScreen> with TickerProvider
 
   Future<void> _loadInitialData() async {
     if (network == null || address == null) return;
-    
+
     await Future.wait([
       _loadRealBalance(),
       _loadGasFee(),
       _loadContacts(),
     ]);
-    
+
     // 启动Gas费用自动刷新
     _startGasRefreshTimer();
   }
 
   Future<void> _loadRealBalance() async {
     if (network == null || address == null) return;
-    
+
     try {
-      final walletProvider = Provider.of<WalletProvider>(context, listen: false);
-      
+      final walletProvider =
+          Provider.of<WalletProvider>(context, listen: false);
+
       // 使用统一的网络余额获取方法
       final realBalance = await walletProvider.getNetworkBalance(network!.id);
-      
+
+      debugPrint('=== 加载余额 ===');
+      debugPrint('网络: ${network!.id}');
+      debugPrint('地址: $address');
+      debugPrint('获取到的余额: $realBalance');
+
       setState(() {
         balance = realBalance;
       });
+
+      debugPrint('设置后的余额: $balance');
     } catch (e) {
-      print('获取余额失败: $e');
+      debugPrint('获取余额失败: $e');
       // 保持默认余额值
     }
   }
 
   Future<void> _loadGasFee() async {
     if (network == null || address == null) return;
-    
+
     try {
-      final walletProvider = Provider.of<WalletProvider>(context, listen: false);
-      
+      final walletProvider =
+          Provider.of<WalletProvider>(context, listen: false);
+
       // 获取当前输入的金额
-      final amount = _amountController.text.isNotEmpty 
-          ? double.tryParse(_amountController.text) ?? 0.001 
+      final amount = _amountController.text.isNotEmpty
+          ? double.tryParse(_amountController.text) ?? 0.001
           : 0.001;
-      
+
       // 使用WalletProvider的费用估算方法
-      final feeEstimate = await walletProvider.getNetworkFeeEstimate(
-        network!.id, 
-        amount: amount
-      );
-      
+      final feeEstimate = await walletProvider
+          .getNetworkFeeEstimate(network!.id, amount: amount);
+
       setState(() {
         gasFee = feeEstimate;
       });
     } catch (e) {
-      print('获取Gas费用失败: $e');
+      debugPrint('获取Gas费用失败: $e');
       setState(() {
         gasFee = 0.000005; // 默认费用
       });
@@ -142,33 +150,37 @@ class _SendDetailScreenState extends State<SendDetailScreen> with TickerProvider
   void _startGasRefreshTimer() {
     _gasRefreshTimer?.cancel();
     _countdownTimer?.cancel();
-    
+
     // 重置倒计时和动画
-    _gasRefreshCountdown = 8;
+    _gasRefreshCountdown = 10;
     _progressAnimationController.reset();
     _progressAnimationController.forward();
-    
+
     // 启动倒计时定时器，每秒更新一次
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      setState(() {
-        _gasRefreshCountdown--;
-      });
-      
-      if (_gasRefreshCountdown <= 0) {
-        // 倒计时结束，刷新Gas费用
+      if (!_gasFeeLocked) {
+        setState(() {
+          _gasRefreshCountdown--;
+        });
+
+        if (_gasRefreshCountdown <= 0) {
+          // 倒计时结束，刷新Gas费用
+          _loadGasFee();
+          _gasRefreshCountdown = 10; // 重置倒计时
+          _progressAnimationController.reset();
+          _progressAnimationController.forward();
+        }
+      }
+    });
+
+    // 主刷新定时器，每10秒执行一次
+    _gasRefreshTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      if (!_gasFeeLocked) {
         _loadGasFee();
-        _gasRefreshCountdown = 8; // 重置倒计时
+        _gasRefreshCountdown = 10; // 重置倒计时
         _progressAnimationController.reset();
         _progressAnimationController.forward();
       }
-    });
-    
-    // 主刷新定时器，每8秒执行一次
-    _gasRefreshTimer = Timer.periodic(const Duration(seconds: 8), (timer) {
-      _loadGasFee();
-      _gasRefreshCountdown = 8; // 重置倒计时
-      _progressAnimationController.reset();
-      _progressAnimationController.forward();
     });
   }
 
@@ -178,7 +190,10 @@ class _SendDetailScreenState extends State<SendDetailScreen> with TickerProvider
       contacts = [
         {'name': '朋友A', 'address': '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'},
         {'name': '朋友B', 'address': '3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy'},
-        {'name': '交易所', 'address': 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh'},
+        {
+          'name': '交易所',
+          'address': 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh'
+        },
       ];
       filteredContacts = contacts;
     });
@@ -191,7 +206,7 @@ class _SendDetailScreenState extends State<SendDetailScreen> with TickerProvider
       } else {
         filteredContacts = contacts.where((contact) {
           return contact['name']!.toLowerCase().contains(query.toLowerCase()) ||
-                 contact['address']!.toLowerCase().contains(query.toLowerCase());
+              contact['address']!.toLowerCase().contains(query.toLowerCase());
         }).toList();
       }
     });
@@ -212,8 +227,10 @@ class _SendDetailScreenState extends State<SendDetailScreen> with TickerProvider
       return false;
     }
 
-    final amount = double.tryParse(_amountController.text);
-    if (amount == null || amount <= 0) {
+    // 使用 Decimal 进行精确计算
+    final amountDecimal = AmountUtils.fromString(_amountController.text);
+
+    if (AmountUtils.lessThanOrEqual(amountDecimal, Decimal.zero)) {
       setState(() {
         errorMessage = '请输入有效的发送数量';
       });
@@ -221,10 +238,25 @@ class _SendDetailScreenState extends State<SendDetailScreen> with TickerProvider
     }
 
     // 检查余额是否足够（包含手续费）
-    final totalRequired = amount + gasFee;
-    if (totalRequired > balance) {
+    // 使用 Decimal 避免浮点数精度问题
+    final balanceDecimal = AmountUtils.fromDouble(balance);
+    final gasFeeDecimal = AmountUtils.fromDouble(gasFee);
+    final totalRequired = AmountUtils.add(amountDecimal, gasFeeDecimal);
+
+    // 调试信息
+    debugPrint('=== 余额验证 ===');
+    debugPrint('输入金额: ${AmountUtils.format(amountDecimal)}');
+    debugPrint('Gas费用: ${AmountUtils.format(gasFeeDecimal)}');
+    debugPrint('需要总额: ${AmountUtils.format(totalRequired)}');
+    debugPrint('当前余额: ${AmountUtils.format(balanceDecimal)}');
+    debugPrint('当前余额: $balance');
+    debugPrint(
+        '余额充足: ${AmountUtils.lessThanOrEqual(totalRequired, balanceDecimal)}');
+
+    if (AmountUtils.greaterThan(totalRequired, balanceDecimal)) {
       setState(() {
-        errorMessage = '余额不足（包含手续费）';
+        errorMessage =
+            '余额不足（包含手续费）\n需要: ${AmountUtils.format(totalRequired)}\n可用: ${AmountUtils.format(balanceDecimal)}';
       });
       return false;
     }
@@ -279,7 +311,7 @@ class _SendDetailScreenState extends State<SendDetailScreen> with TickerProvider
               ),
             ),
             const SizedBox(height: 16),
-            
+
             // 搜索框
             TextField(
               controller: _searchController,
@@ -298,7 +330,7 @@ class _SendDetailScreenState extends State<SendDetailScreen> with TickerProvider
               onChanged: _filterContacts,
             ),
             const SizedBox(height: 16),
-            
+
             // 联系人列表
             Expanded(
               child: ListView.builder(
@@ -335,27 +367,116 @@ class _SendDetailScreenState extends State<SendDetailScreen> with TickerProvider
   Future<void> _sendTransaction() async {
     if (!_validateInput()) return;
 
+    // 显示密码确认对话框
+    final password = await _showPasswordDialog();
+    if (password == null) return;
+
     setState(() {
       isLoading = true;
+      errorMessage = '';
     });
 
     try {
-      // 这里实现实际的发送逻辑
-      await Future.delayed(const Duration(seconds: 2)); // 模拟网络请求
-      
-      if (mounted) {
-        Navigator.pop(context, true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('交易已提交'),
-            backgroundColor: Colors.green,
-          ),
-        );
+      final walletProvider =
+          Provider.of<WalletProvider>(context, listen: false);
+      final currentWallet = walletProvider.currentWallet;
+
+      if (currentWallet == null) {
+        throw Exception('未找到当前钱包');
       }
+
+      // 验证密码
+      final isPasswordValid = await walletProvider.verifyPasswordForWallet(
+        currentWallet.id,
+        password,
+      );
+
+      if (!isPasswordValid) {
+        throw Exception('密码错误');
+      }
+
+      // 获取金额
+      final amount = double.parse(_amountController.text);
+      final recipient = _recipientController.text.trim();
+      final memo = _memoController.text.trim();
+
+      // 调用钱包提供者的发送交易方法
+      final txHash = await walletProvider.sendTransaction(
+        networkId: network!.id,
+        toAddress: recipient,
+        amount: amount,
+        password: password,
+        memo: memo.isNotEmpty ? memo : null,
+      );
+
+      if (!mounted) return;
+
+      Navigator.pop(context, true);
+
+      // 显示成功对话框
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: const Color(0xFF1A1A2E),
+          title: const Text(
+            '交易已提交',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '交易哈希:',
+                style: TextStyle(color: Colors.white70),
+              ),
+              const SizedBox(height: 8),
+              SelectableText(
+                txHash,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '金额: $amount ${network!.symbol}',
+                style: const TextStyle(color: Colors.white70),
+              ),
+              Text(
+                '收款地址: ${recipient.substring(0, 8)}...${recipient.substring(recipient.length - 8)}',
+                style: const TextStyle(color: Colors.white70),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                // 可以在这里添加查看区块浏览器的功能
+              },
+              child: const Text('查看详情'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('确定'),
+            ),
+          ],
+        ),
+      );
     } catch (e) {
       setState(() {
         errorMessage = '发送失败: $e';
       });
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('发送失败: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     } finally {
       setState(() {
         isLoading = false;
@@ -363,15 +484,141 @@ class _SendDetailScreenState extends State<SendDetailScreen> with TickerProvider
     }
   }
 
+  Future<String?> _showPasswordDialog() async {
+    final passwordController = TextEditingController();
+    bool obscureText = true;
+    String? errorText;
+
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          backgroundColor: const Color(0xFF1A1A2E),
+          title: const Text(
+            '确认交易',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '请输入钱包密码以确认交易',
+                style: TextStyle(color: Colors.white70),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: passwordController,
+                obscureText: obscureText,
+                style: const TextStyle(color: Colors.white),
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: '输入密码（至少6位）',
+                  hintStyle: const TextStyle(color: Colors.white54),
+                  errorText: errorText,
+                  errorStyle: const TextStyle(color: Colors.red),
+                  filled: true,
+                  fillColor: const Color(0xFF2A2A3E),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide.none,
+                  ),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      obscureText ? Icons.visibility : Icons.visibility_off,
+                      color: Colors.white54,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        obscureText = !obscureText;
+                      });
+                    },
+                  ),
+                ),
+                onChanged: (value) {
+                  // 清除错误提示
+                  if (errorText != null) {
+                    setState(() {
+                      errorText = null;
+                    });
+                  }
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, null),
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () {
+                final password = passwordController.text;
+
+                // 验证密码长度
+                if (password.isEmpty) {
+                  setState(() {
+                    errorText = '请输入密码';
+                  });
+                  return;
+                }
+
+                if (password.length < 6) {
+                  setState(() {
+                    errorText = '密码至少需要6位';
+                  });
+                  return;
+                }
+
+                // 密码验证通过，关闭对话框
+                Navigator.pop(context, password);
+              },
+              child: const Text('确认'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _setMaxAmount() {
-    // 设置为余额减去手续费的金额
-    final maxAmount = balance - gasFee;
-    if (maxAmount > 0) {
+    // 使用 Decimal 进行精确计算，避免浮点数精度问题
+    final balanceDecimal = AmountUtils.fromDouble(balance);
+    final gasFeeDecimal = AmountUtils.fromDouble(gasFee);
+    final maxAmountDecimal =
+        AmountUtils.calculateMaxSendAmount(balanceDecimal, gasFeeDecimal);
+
+    // 调试信息
+    debugPrint('=== 点击全部按钮 ===');
+    debugPrint('当前余额: ${AmountUtils.format(balanceDecimal)} (原始: $balance)');
+    debugPrint('Gas费用: ${AmountUtils.format(gasFeeDecimal)} (原始: $gasFee)');
+    debugPrint('最大金额: ${AmountUtils.format(maxAmountDecimal)}');
+
+    if (AmountUtils.isPositive(maxAmountDecimal)) {
       setState(() {
-        _amountController.text = maxAmount.toStringAsFixed(8);
+        // 使用 Decimal 计算，不需要额外的安全边界
+        _amountController.text = AmountUtils.format(maxAmountDecimal);
+        // 锁定 Gas 费用，防止自动刷新导致余额不足
+        _gasFeeLocked = true;
+        // 清除之前的错误信息
+        errorMessage = '';
       });
-      // 重新计算Gas费用
-      _loadGasFee();
+
+      // 验证计算是否正确
+      final totalRequired = AmountUtils.add(maxAmountDecimal, gasFeeDecimal);
+      debugPrint('验证: 最大金额 + Gas = ${AmountUtils.format(totalRequired)}');
+      debugPrint(
+          '验证: 是否 <= 余额? ${AmountUtils.lessThanOrEqual(totalRequired, balanceDecimal)}');
+      debugPrint('Gas 费用已锁定');
+
+      // 注意：这里不重新计算Gas费用，因为全部金额已经预留了手续费
+      // 如果重新计算，可能会导致手续费变化，从而使余额不足
+    } else {
+      // 余额不足以支付手续费
+      setState(() {
+        errorMessage = '余额不足以支付手续费';
+      });
     }
   }
 
@@ -454,11 +701,13 @@ class _SendDetailScreenState extends State<SendDetailScreen> with TickerProvider
                         hintText: '请输入收款地址',
                         hintStyle: TextStyle(color: Colors.white54),
                         border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
@@ -500,7 +749,7 @@ class _SendDetailScreenState extends State<SendDetailScreen> with TickerProvider
                     ),
                   ),
                   Text(
-                    '可用: ${balance.toStringAsFixed(2)} ${network?.symbol ?? 'USDT'}',
+                    '可用: ${balance.toString()} ${network?.symbol ?? 'USDT'}',
                     style: const TextStyle(
                       color: Colors.white54,
                       fontSize: 14,
@@ -520,20 +769,26 @@ class _SendDetailScreenState extends State<SendDetailScreen> with TickerProvider
                     TextField(
                       controller: _amountController,
                       style: const TextStyle(color: Colors.white),
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
                       decoration: const InputDecoration(
                         hintText: '请输入转账数量',
                         hintStyle: TextStyle(color: Colors.white54),
                         border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                       ),
                       onChanged: (value) {
-                        // 当输入金额变化时，重新计算Gas费用
+                        // 当输入金额变化时，解锁并重新计算Gas费用
+                        setState(() {
+                          _gasFeeLocked = false;
+                        });
                         _loadGasFee();
                       },
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
                       child: Row(
                         children: [
                           Text(
@@ -606,14 +861,15 @@ class _SendDetailScreenState extends State<SendDetailScreen> with TickerProvider
                               return CircularProgressIndicator(
                                 value: _progressAnimation.value,
                                 strokeWidth: 1.5,
-                                valueColor: const AlwaysStoppedAnimation<Color>(Colors.green),
+                                valueColor: const AlwaysStoppedAnimation<Color>(
+                                    Colors.green),
                                 backgroundColor: Colors.transparent,
                               );
                             },
                           ),
                         ),
                         // 中心数字
-                        Container(
+                        SizedBox(
                           width: 14,
                           height: 14,
                           child: Center(
@@ -727,9 +983,10 @@ class _SendDetailScreenState extends State<SendDetailScreen> with TickerProvider
                   padding: const EdgeInsets.all(12),
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
+                    color: Colors.red.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.red.withOpacity(0.3)),
+                    border:
+                        Border.all(color: Colors.red.withValues(alpha: 0.3)),
                   ),
                   child: Text(
                     errorMessage,

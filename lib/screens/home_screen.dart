@@ -10,6 +10,7 @@ import '../services/storage_service.dart';
 import '../services/address_count_service.dart';
 import 'transaction_history_screen.dart';
 import 'buy_crypto_screen.dart';
+import '../utils/amount_utils.dart';
 
 import '../widgets/blockchain_address_list.dart';
 import '../models/blockchain_address.dart';
@@ -1269,9 +1270,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     } else if (balance >= 1000) {
       return '${(balance / 1000).toStringAsFixed(2)}K';
     } else if (balance >= 1) {
-      return balance.toStringAsFixed(4);
+      // 使用截取方式，最多显示9位小数
+      return AmountUtils.formatTruncated(balance, decimals: 9);
     } else {
-      return balance.toStringAsFixed(6);
+      // 使用截取方式，最多显示9位小数
+      return AmountUtils.formatTruncated(balance, decimals: 9);
     }
   }
 

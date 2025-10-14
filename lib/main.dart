@@ -182,19 +182,14 @@ class _WalletInitScreenState extends State<WalletInitScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             // Logo
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(24),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: SizedBox(
+                width: 120,
+                height: 120,
                 child: SvgPicture.asset(
                   'assets/images/harbor_logo.svg',
-                  width: 120,
-                  height: 120,
-                  fit: BoxFit.contain,
+                  fit: BoxFit.cover,
                 ),
               ),
             ),

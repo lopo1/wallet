@@ -265,26 +265,16 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: Color(network.color).withValues(alpha: 0.2),
+                    color: Color(network.color),
                     borderRadius: BorderRadius.circular(24),
                   ),
                   child: Center(
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: Color(network.color),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Center(
-                        child: Text(
-                          network.symbol.substring(0, 1).toUpperCase(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                    child: Text(
+                      network.symbol.substring(0, 1).toUpperCase(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
