@@ -158,7 +158,7 @@ class _SendDetailScreenState extends State<SendDetailScreen>
 
     // 启动倒计时定时器，每秒更新一次
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!_gasFeeLocked) {
+      if (!_gasFeeLocked && mounted) {
         setState(() {
           _gasRefreshCountdown--;
         });
@@ -185,6 +185,8 @@ class _SendDetailScreenState extends State<SendDetailScreen>
   }
 
   Future<void> _loadContacts() async {
+    if (!mounted) return;
+    
     // 模拟联系人数据
     setState(() {
       contacts = [
@@ -200,6 +202,8 @@ class _SendDetailScreenState extends State<SendDetailScreen>
   }
 
   void _filterContacts(String query) {
+    if (!mounted) return;
+    
     setState(() {
       if (query.isEmpty) {
         filteredContacts = contacts;

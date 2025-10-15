@@ -8,6 +8,7 @@ import '../widgets/sidebar.dart';
 import '../models/token.dart';
 import '../services/storage_service.dart';
 import '../services/address_count_service.dart';
+import '../services/screen_lock_service.dart';
 import 'transaction_history_screen.dart';
 import 'buy_crypto_screen.dart';
 import '../utils/amount_utils.dart';
@@ -35,6 +36,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   List<Token> _customTokens = [];
   final StorageService _storageService = StorageService();
   final ScrollController _scrollController = ScrollController();
+  final ScreenLockService _screenLockService = ScreenLockService();
 
   // 现代色彩方案
   static const Color primaryBackground = Color(0xFF0A0B0D);
@@ -64,7 +66,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   // 加载地址数量
   Future<void> _loadAddressCounts() async {
-    if (_isLoadingAddressCounts) return;
+    if (_isLoadingAddressCounts || !mounted) return;
 
     setState(() {
       _isLoadingAddressCounts = true;
@@ -80,15 +82,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         counts[chainId] = count;
       }
 
-      setState(() {
-        _addressCounts = counts;
-        _isLoadingAddressCounts = false;
-      });
+      if (mounted) {
+        setState(() {
+          _addressCounts = counts;
+          _isLoadingAddressCounts = false;
+        });
+      }
     } catch (e) {
       debugPrint('加载地址数量失败: $e');
-      setState(() {
-        _isLoadingAddressCounts = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoadingAddressCounts = false;
+        });
+      }
     }
   }
 
@@ -920,6 +926,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   /// 加载真实余额数据
   Future<void> _loadRealBalances() async {
+    if (!mounted) return;
+
     setState(() {
       _isLoadingBalances = true;
     });
@@ -950,16 +958,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         }
       }
 
-      setState(() {
-        _realBalances = balances;
-        _totalPortfolioValue = totalValue;
-        _isLoadingBalances = false;
-      });
+      if (mounted) {
+        setState(() {
+          _realBalances = balances;
+          _totalPortfolioValue = totalValue;
+          _isLoadingBalances = false;
+        });
+      }
     } catch (e) {
       debugPrint('加载余额失败: $e');
-      setState(() {
-        _isLoadingBalances = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoadingBalances = false;
+        });
+      }
     }
   }
 
@@ -971,12 +983,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   /// 加载自定义代币
   Future<void> _loadCustomTokens() async {
+    if (!mounted) return;
+
     try {
       final tokensData = await _storageService.getCustomTokens();
       debugPrint('加载自定义代币: 找到 ${tokensData.length} 个代币');
-      setState(() {
-        _customTokens = tokensData.map((data) => Token.fromJson(data)).toList();
-      });
+      if (mounted) {
+        setState(() {
+          _customTokens =
+              tokensData.map((data) => Token.fromJson(data)).toList();
+        });
+      }
       debugPrint('自定义代币列表已更新: ${_customTokens.length} 个代币');
     } catch (e) {
       debugPrint('加载自定义代币失败: $e');
@@ -1069,50 +1086,60 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < 768;
 
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: primaryBackground,
-      drawer: isMobile
-          ? Drawer(
-              backgroundColor: primaryBackground,
-              child: SafeArea(
-                child: Sidebar(
-                  onCollapseChanged: (isCollapsed) {
-                    setState(() {
-                      _isSidebarCollapsed = isCollapsed;
-                    });
-                    Navigator.of(context).pop(); // 关闭抽屉
-                  },
+    return GestureDetector(
+      onTap: () {
+        // 用户交互时重置锁屏计时器
+        _screenLockService.resetTimer();
+      },
+      onPanDown: (_) {
+        // 用户滑动时重置锁屏计时器
+        _screenLockService.resetTimer();
+      },
+      child: Scaffold(
+        key: _scaffoldKey,
+        backgroundColor: primaryBackground,
+        drawer: isMobile
+            ? Drawer(
+                backgroundColor: primaryBackground,
+                child: SafeArea(
+                  child: Sidebar(
+                    onCollapseChanged: (isCollapsed) {
+                      setState(() {
+                        _isSidebarCollapsed = isCollapsed;
+                      });
+                      Navigator.of(context).pop(); // 关闭抽屉
+                    },
+                  ),
                 ),
-              ),
-            )
-          : null,
-      body: SafeArea(
-        child: isMobile
-            ? _buildMobileLayout()
-            : Row(
-                children: [
-                  // Desktop Sidebar
-                  SizedBox(
-                    width: _isSidebarCollapsed ? 80 : 280,
-                    child: Sidebar(
-                      onCollapseChanged: (isCollapsed) {
-                        setState(() {
-                          _isSidebarCollapsed = isCollapsed;
-                        });
-                      },
+              )
+            : null,
+        body: SafeArea(
+          child: isMobile
+              ? _buildMobileLayout()
+              : Row(
+                  children: [
+                    // Desktop Sidebar
+                    SizedBox(
+                      width: _isSidebarCollapsed ? 80 : 280,
+                      child: Sidebar(
+                        onCollapseChanged: (isCollapsed) {
+                          setState(() {
+                            _isSidebarCollapsed = isCollapsed;
+                          });
+                        },
+                      ),
                     ),
-                  ),
-                  // Main content
-                  Expanded(
-                    child: _buildMainContent(),
-                  ),
-                ],
-              ),
+                    // Main content
+                    Expanded(
+                      child: _buildMainContent(),
+                    ),
+                  ],
+                ),
+        ),
+        floatingActionButton: null,
+        floatingActionButtonLocation: null,
+        bottomNavigationBar: isMobile ? _buildBottomNavBar() : null,
       ),
-      floatingActionButton: null,
-      floatingActionButtonLocation: null,
-      bottomNavigationBar: isMobile ? _buildBottomNavBar() : null,
     );
   }
 

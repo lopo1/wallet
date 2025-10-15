@@ -15,7 +15,7 @@ class BottomNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 88,
+      height: 86, // 增加整体高度以提供更多底部间距
       decoration: const BoxDecoration(
         color: Color(0xFF2A2D3A),
       ),
@@ -121,7 +121,8 @@ class _NavItem extends StatelessWidget {
                         width: 36,
                         height: 36,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF8B5CF6).withOpacity(0.20),
+                          color:
+                              const Color(0xFF8B5CF6).withValues(alpha: 0.20),
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -142,29 +143,36 @@ class _NavItem extends StatelessWidget {
             ),
 
             // Content; when not selected, show the icon (dimmed)
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 180),
-                  child: isSelected
-                      ? const SizedBox.shrink()
-                      : Opacity(
-                          key: const ValueKey('unselected_icon'),
-                          opacity: 0.75,
-                          child: iconBuilder(false),
-                        ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: isSelected ? const Color(0xFF8B5CF6) : Colors.white70,
-                    fontSize: 12,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            Positioned(
+              bottom: 30, // 增加底部间距，从8调整到16
+              left: 0,
+              right: 0,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 180),
+                    child: isSelected
+                        ? const SizedBox(height: 6) // 进一步减少占位空间，从16调整到12
+                        : Opacity(
+                            key: const ValueKey('unselected_icon'),
+                            opacity: 0.75,
+                            child: iconBuilder(false),
+                          ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 2), // 进一步减少图标和文字之间的间距，从4调整到2
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color:
+                          isSelected ? const Color(0xFF8B5CF6) : Colors.white70,
+                      fontSize: 12,
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),

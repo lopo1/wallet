@@ -14,6 +14,7 @@ class StorageService {
   static const String _encryptedMnemonicPrefix = 'encrypted_mnemonic_';
   static const String _encryptedPrivateKeyPrefix = 'encrypted_private_key_';
   static const String _customTokensKey = 'custom_tokens';
+  static const String _lockScreenTimeoutKey = 'lock_screen_timeout';
 
   Future<List<Wallet>> getWallets() async {
     try {
@@ -460,6 +461,40 @@ class StorageService {
     } catch (e) {
       debugPrint('检查数据存在性失败 ($key): $e');
       return false;
+    }
+  }
+
+  /// 保存锁屏时间设置（秒）
+  Future<void> saveLockScreenTimeout(int timeoutSeconds) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_lockScreenTimeoutKey, timeoutSeconds);
+      debugPrint('锁屏时间设置已保存: ${timeoutSeconds}秒');
+    } catch (e) {
+      debugPrint('保存锁屏时间设置失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 获取锁屏时间设置（秒），默认15秒
+  Future<int> getLockScreenTimeout() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getInt(_lockScreenTimeoutKey) ?? 15; // 默认15秒
+    } catch (e) {
+      debugPrint('获取锁屏时间设置失败: $e');
+      return 15; // 出错时返回默认值
+    }
+  }
+
+  /// 清除锁屏时间设置
+  Future<void> clearLockScreenTimeout() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_lockScreenTimeoutKey);
+      debugPrint('锁屏时间设置已清除');
+    } catch (e) {
+      debugPrint('清除锁屏时间设置失败: $e');
     }
   }
 }

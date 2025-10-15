@@ -16,6 +16,7 @@ import 'screens/swap_screen.dart';
 import 'screens/account_detail_screen.dart';
 import 'screens/solana_fee_estimator_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/security_settings_screen.dart';
 import 'screens/add_token_screen.dart';
 import 'screens/walletconnect_sessions_screen.dart';
 import 'screens/dapp_browser_screen.dart';
@@ -29,13 +30,79 @@ import 'screens/token_detail_screen.dart';
 import 'services/walletconnect_service.dart';
 import 'services/solana_wallet_service.dart';
 import 'services/dapp_connection_service.dart';
+import 'services/screen_lock_service.dart';
 
 void main() {
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  final ScreenLockService _screenLockService = ScreenLockService();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+
+    // 设置锁屏回调
+    _screenLockService.setLockScreenCallback(() {
+      _navigateToLogin();
+    });
+
+    // 启动锁屏计时器
+    _screenLockService.resetTimer();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _screenLockService.stop();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    switch (state) {
+      case AppLifecycleState.resumed:
+        // 应用回到前台，恢复锁屏计时器
+        _screenLockService.resume();
+        break;
+      case AppLifecycleState.paused:
+      case AppLifecycleState.inactive:
+        // 应用进入后台，暂停锁屏计时器
+        _screenLockService.pause();
+        break;
+      case AppLifecycleState.detached:
+        // 应用被销毁
+        _screenLockService.stop();
+        break;
+      case AppLifecycleState.hidden:
+        // 应用被隐藏
+        _screenLockService.pause();
+        break;
+    }
+  }
+
+  void _navigateToLogin() {
+    // 获取当前导航器并跳转到登录页面
+    final context = navigatorKey.currentContext;
+    if (context != null) {
+      Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+    }
+  }
+
+  // 全局导航器键
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
 
   @override
   Widget build(BuildContext context) {
@@ -63,6 +130,7 @@ class MyApp extends StatelessWidget {
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {
           return MaterialApp(
+            navigatorKey: navigatorKey,
             title: 'Harbor',
             debugShowCheckedModeBanner: false,
             theme: ThemeData(
@@ -103,6 +171,7 @@ class MyApp extends StatelessWidget {
                   const SolanaFeeEstimatorScreen(),
               '/settings': (context) => const SettingsScreen(),
               '/wallet_settings': (context) => const SettingsScreen(),
+              '/security-settings': (context) => const SecuritySettingsScreen(),
               '/add_token': (context) => const AddTokenScreen(),
               '/manage_tokens': (context) => const AddTokenScreen(),
               '/walletconnect-sessions': (context) =>

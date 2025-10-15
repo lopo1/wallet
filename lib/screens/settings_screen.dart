@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import '../services/screen_lock_service.dart';
 import '../widgets/bottom_nav_bar.dart';
-import '../providers/wallet_provider.dart';
+import 'security_settings_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -11,690 +11,483 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool _isLoading = false;
+  final ScreenLockService _screenLockService = ScreenLockService();
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF1A1B23),
-      appBar: AppBar(
+    return GestureDetector(
+      onTap: () {
+        // 用户交互时重置锁屏计时器
+        _screenLockService.resetTimer();
+        // 隐藏键盘
+        FocusScope.of(context).unfocus();
+      },
+      onPanDown: (_) {
+        // 用户滑动时重置锁屏计时器
+        _screenLockService.resetTimer();
+      },
+      child: Scaffold(
         backgroundColor: const Color(0xFF1A1B23),
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () {
-            // 检查是否可以返回，如果不能则导航到首页
-            if (Navigator.of(context).canPop()) {
-              Navigator.of(context).pop();
-            } else {
-              Navigator.of(context).pushReplacementNamed('/home');
+        body: SafeArea(
+          child: Column(
+            children: [
+              // 顶部标题栏
+              _buildHeader(),
+
+              // 搜索框
+              _buildSearchBar(),
+
+              // 内容区域
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 20),
+
+                      // 用户信息卡片
+                      _buildUserCard(),
+
+                      const SizedBox(height: 24),
+
+                      // 设置选项列表
+                      _buildSettingsOptions(),
+
+                      const SizedBox(height: 100), // 底部留白
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        bottomNavigationBar: BottomNavBar(
+          selectedIndex: 3,
+          onItemSelected: (index) {
+            switch (index) {
+              case 0:
+                Navigator.pushReplacementNamed(context, '/home');
+                break;
+              case 1:
+                Navigator.pushReplacementNamed(context, '/swap');
+                break;
+              case 2:
+                Navigator.pushReplacementNamed(context, '/dapp-browser');
+                break;
+              case 3:
+                // current page
+                break;
             }
           },
         ),
-        title: const Text(
-          '设置',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
       ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6366F1)),
+    );
+  }
+
+  /// 构建顶部标题栏
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      child: Row(
+        children: [
+          // 关闭按钮
+          GestureDetector(
+            onTap: () {
+              if (Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              } else {
+                Navigator.of(context).pushReplacementNamed('/home');
+              }
+            },
+            child: Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
               ),
-            )
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildSectionTitle('钱包管理'),
-                  const SizedBox(height: 12),
-                  _buildSettingCard(
-                    children: [
-                      _buildSettingItem(
-                        icon: Icons.download,
-                        title: '导入钱包',
-                        subtitle: '通过助记词导入现有钱包',
-                        onTap: () => _showImportWalletDialog(),
-                      ),
-                      const Divider(color: Colors.white10, height: 1),
-                      _buildSettingItem(
-                        icon: Icons.upload,
-                        title: '导出助记词',
-                        subtitle: '备份当前钱包的助记词',
-                        onTap: () => _showExportMnemonicDialog(),
-                      ),
-                      const Divider(color: Colors.white10, height: 1),
-                      _buildSettingItem(
-                        icon: Icons.sync_alt,
-                        title: '重置助记词',
-                        subtitle: '删除当前助记词并重新导入',
-                        onTap: () => _showResetMnemonicDialog(),
-                        isDestructive: true,
-                      ),
-                      const Divider(color: Colors.white10, height: 1),
-                      _buildSettingItem(
-                        icon: Icons.refresh,
-                        title: '清除钱包重新导入',
-                        subtitle: '清除所有钱包数据并重新开始',
-                        onTap: () => _showResetWalletDialog(),
-                        isDestructive: true,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
-                  _buildSectionTitle('网络设置'),
-                  const SizedBox(height: 12),
-                  _buildSettingCard(
-                    children: [
-                      _buildSettingItem(
-                        icon: Icons.network_check,
-                        title: 'RPC 配置',
-                        subtitle: '管理网络 RPC 端点',
-                        onTap: () => _showRpcConfigDialog(),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
-                  _buildSectionTitle('安全设置'),
-                  const SizedBox(height: 12),
-                  _buildSettingCard(
-                    children: [
-                      _buildSettingItem(
-                        icon: Icons.lock,
-                        title: '修改密码',
-                        subtitle: '更改钱包解锁密码',
-                        onTap: () => _showChangePasswordDialog(),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
-                  _buildSectionTitle('关于'),
-                  const SizedBox(height: 12),
-                  _buildSettingCard(
-                    children: [
-                      _buildSettingItem(
-                        icon: Icons.info,
-                        title: '版本信息',
-                        subtitle: 'v1.0.0',
-                        onTap: () => _showAboutDialog(),
-                      ),
-                    ],
-                  ),
-                ],
+              child: const Icon(
+                Icons.close,
+                color: Colors.white,
+                size: 20,
               ),
             ),
-      bottomNavigationBar: BottomNavBar(
-        selectedIndex: 3,
-        onItemSelected: (index) {
-          switch (index) {
-            case 0:
-              Navigator.pushReplacementNamed(context, '/home');
-              break;
-            case 1:
-              Navigator.pushReplacementNamed(context, '/swap');
-              break;
-            case 2:
-              Navigator.pushReplacementNamed(context, '/dapp-browser');
-              break;
-            case 3:
-              // current page
-              break;
-          }
-        },
+          ),
+
+          // 标题
+          const Expanded(
+            child: Text(
+              '设置',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+
+          // 占位，保持标题居中
+          const SizedBox(width: 32),
+        ],
       ),
     );
   }
 
-  Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        color: Colors.white,
-        fontSize: 18,
-        fontWeight: FontWeight.w600,
-      ),
-    );
-  }
-
-  Widget _buildSettingCard({required List<Widget> children}) {
+  /// 构建搜索框
+  Widget _buildSearchBar() {
     return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      height: 44,
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.search,
+            color: Colors.white.withValues(alpha: 0.6),
+            size: 20,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+              ),
+              decoration: InputDecoration(
+                hintText: '搜索...',
+                hintStyle: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.6),
+                  fontSize: 16,
+                ),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 构建用户信息卡片
+  Widget _buildUserCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Colors.white.withOpacity(0.1),
+          color: Colors.white.withValues(alpha: 0.1),
           width: 1,
         ),
       ),
-      child: Column(children: children),
+      child: Row(
+        children: [
+          // 用户头像
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFF6B6B), Color(0xFF4ECDC4)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: const Center(
+              child: Text(
+                '🐰',
+                style: TextStyle(fontSize: 24),
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          // 用户名
+          const Expanded(
+            child: Text(
+              '@SpryBunny634',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+
+          // 箭头
+          Icon(
+            Icons.chevron_right,
+            color: Colors.white.withValues(alpha: 0.4),
+            size: 20,
+          ),
+        ],
+      ),
     );
   }
 
+  /// 构建设置选项列表
+  Widget _buildSettingsOptions() {
+    return Column(
+      children: [
+        _buildSettingItem(
+          icon: Icons.account_balance_wallet,
+          iconColor: const Color(0xFF6366F1),
+          title: '管理账户',
+          trailing: '1',
+          onTap: () => _showAccountManagement(),
+        ),
+        const SizedBox(height: 12),
+        _buildSettingItem(
+          icon: Icons.tune,
+          iconColor: const Color(0xFF8B5CF6),
+          title: '偏好设置',
+          onTap: () => _showPreferences(),
+        ),
+        const SizedBox(height: 12),
+        _buildSettingItem(
+          icon: Icons.security,
+          iconColor: const Color(0xFF10B981),
+          title: '安全性与隐私',
+          onTap: () => _showSecuritySettings(),
+        ),
+        const SizedBox(height: 12),
+        _buildSettingItem(
+          icon: Icons.language,
+          iconColor: const Color(0xFF3B82F6),
+          title: '有效网络',
+          trailing: '6',
+          onTap: () => _showNetworkSettings(),
+        ),
+        const SizedBox(height: 12),
+        _buildSettingItem(
+          icon: Icons.location_on,
+          iconColor: const Color(0xFFF59E0B),
+          title: '地址簿',
+          onTap: () => _showAddressBook(),
+        ),
+        const SizedBox(height: 12),
+        _buildSettingItem(
+          icon: Icons.apps,
+          iconColor: const Color(0xFF8B5CF6),
+          title: '关联的应用',
+          onTap: () => _showConnectedApps(),
+        ),
+        const SizedBox(height: 24),
+        _buildSettingItem(
+          icon: Icons.developer_mode,
+          iconColor: const Color(0xFF6B7280),
+          title: '开发者设置',
+          onTap: () => _showDeveloperSettings(),
+        ),
+        const SizedBox(height: 24),
+        _buildSettingItem(
+          icon: Icons.help_outline,
+          iconColor: const Color(0xFF6B7280),
+          title: '帮助与支持',
+          showExternalIcon: true,
+          onTap: () => _showHelpAndSupport(),
+        ),
+        const SizedBox(height: 12),
+        _buildSettingItem(
+          icon: Icons.person_add_outlined,
+          iconColor: const Color(0xFF6B7280),
+          title: '邀请好友',
+          showShareIcon: true,
+          onTap: () => _showInviteFriends(),
+        ),
+      ],
+    );
+  }
+
+  /// 构建设置项
   Widget _buildSettingItem({
     required IconData icon,
+    required Color iconColor,
     required String title,
-    required String subtitle,
+    String? trailing,
+    bool showExternalIcon = false,
+    bool showShareIcon = false,
     required VoidCallback onTap,
-    bool isDestructive = false,
   }) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      leading: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: isDestructive
-              ? Colors.red.withOpacity(0.2)
-              : const Color(0xFF6366F1).withOpacity(0.2),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Icon(
-          icon,
-          color: isDestructive ? Colors.red : const Color(0xFF6366F1),
-          size: 20,
-        ),
-      ),
-      title: Text(
-        title,
-        style: TextStyle(
-          color: isDestructive ? Colors.red : Colors.white,
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(
-          color: isDestructive ? Colors.red.withOpacity(0.7) : Colors.white70,
-          fontSize: 14,
-        ),
-      ),
-      trailing: Icon(
-        Icons.chevron_right,
-        color: isDestructive ? Colors.red.withOpacity(0.7) : Colors.white38,
-      ),
+    return GestureDetector(
       onTap: onTap,
-    );
-  }
-
-  void _showResetMnemonicDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF1A1B23),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.1),
+            width: 1,
           ),
-          title: const Row(
-            children: [
-              Icon(
-                Icons.warning,
-                color: Colors.orange,
-                size: 24,
+        ),
+        child: Row(
+          children: [
+            // 图标
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(8),
               ),
-              SizedBox(width: 12),
-              Text(
-                '重置助记词',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '此操作将删除当前钱包的助记词，并引导您重新导入或创建新钱包。',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 14,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: Colors.orange.withOpacity(0.3),
-                    width: 1,
-                  ),
-                ),
-                child: const Text(
-                  '⚠️ 请确保您已备份助记词！\n此操作无法撤销，继续操作将使您丢失当前钱包的访问权限，除非您已备份。',
-                  style: TextStyle(
-                    color: Colors.orange,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text(
-                '取消',
-                style: TextStyle(color: Colors.white70),
+              child: Icon(
+                icon,
+                color: iconColor,
+                size: 18,
               ),
             ),
-            ElevatedButton(
-              onPressed: () => _confirmResetMnemonic(),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text('确认重置'),
-            ),
-          ],
-        );
-      },
-    );
-  }
 
-  void _confirmResetMnemonic() {
-    Navigator.of(context).pop(); // 关闭确认对话框
-    _executeResetWallet(); // 复用现有的重置钱包逻辑
-  }
+            const SizedBox(width: 12),
 
-  void _showResetWalletDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF1A1B23),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Row(
-            children: [
-              Icon(
-                Icons.warning,
-                color: Colors.red,
-                size: 24,
-              ),
-              SizedBox(width: 12),
-              Text(
-                '清除钱包',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '此操作将会：',
-                style: TextStyle(
+            // 标题
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              const SizedBox(height: 12),
-              _buildWarningItem('• 删除所有钱包数据'),
-              _buildWarningItem('• 清除所有地址和私钥'),
-              _buildWarningItem('• 重置所有设置'),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: Colors.red.withOpacity(0.3),
-                    width: 1,
-                  ),
-                ),
-                child: const Text(
-                  '⚠️ 请确保您已备份助记词！\n此操作无法撤销，如果没有备份助记词，您将永久失去对钱包的访问权限。',
-                  style: TextStyle(
-                    color: Colors.red,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text(
-                '取消',
-                style: TextStyle(color: Colors.white70),
-              ),
             ),
-            ElevatedButton(
-              onPressed: () => _confirmResetWallet(),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text('确认清除'),
-            ),
-          ],
-        );
-      },
-    );
-  }
 
-  Widget _buildWarningItem(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: Colors.white70,
-          fontSize: 14,
+            // 尾部内容
+            if (trailing != null) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  trailing,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
+
+            // 图标
+            if (showExternalIcon)
+              Icon(
+                Icons.open_in_new,
+                color: Colors.white.withValues(alpha: 0.4),
+                size: 16,
+              )
+            else if (showShareIcon)
+              Icon(
+                Icons.share,
+                color: Colors.white.withValues(alpha: 0.4),
+                size: 16,
+              )
+            else
+              Icon(
+                Icons.chevron_right,
+                color: Colors.white.withValues(alpha: 0.4),
+                size: 20,
+              ),
+          ],
         ),
       ),
     );
   }
 
-  void _confirmResetWallet() {
-    Navigator.of(context).pop(); // 关闭确认对话框
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF1A1B23),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Text(
-            '最后确认',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          content: const Text(
-            '您确定要清除所有钱包数据吗？\n\n请输入 "RESET" 来确认此操作：',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 14,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text(
-                '取消',
-                style: TextStyle(color: Colors.white70),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () => _showResetConfirmationInput(),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text('继续'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _showResetConfirmationInput() {
-    Navigator.of(context).pop(); // 关闭上一个对话框
-
-    final TextEditingController confirmController = TextEditingController();
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              backgroundColor: const Color(0xFF1A1B23),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              title: const Text(
-                '输入确认码',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    '请输入 "RESET" 来确认清除操作：',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 14,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: confirmController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      hintText: '输入 RESET',
-                      hintStyle: const TextStyle(color: Colors.white38),
-                      filled: true,
-                      fillColor: Colors.white10,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                    ),
-                    onChanged: (value) => setState(() {}),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text(
-                    '取消',
-                    style: TextStyle(color: Colors.white70),
-                  ),
-                ),
-                ElevatedButton(
-                  onPressed:
-                      confirmController.text.trim().toUpperCase() == 'RESET'
-                          ? () => _executeResetWallet()
-                          : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        confirmController.text.trim().toUpperCase() == 'RESET'
-                            ? Colors.red
-                            : Colors.grey,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: const Text('清除钱包'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Future<void> _executeResetWallet() async {
-    Navigator.of(context).pop(); // 关闭输入对话框
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final walletProvider =
-          Provider.of<WalletProvider>(context, listen: false);
-      await walletProvider.resetWallet();
-
-      if (mounted) {
-        // 显示成功消息
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('钱包已成功清除'),
-            backgroundColor: Colors.green,
-          ),
-        );
-
-        // 导航到欢迎页面
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          '/welcome',
-          (route) => false,
-        );
-      }
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('清除钱包失败: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  void _showImportWalletDialog() {
-    Navigator.pushNamed(context, '/create-wallet',
-        arguments: {'mode': 'import'});
-  }
-
-  void _showExportMnemonicDialog() {
-    // TODO: 实现导出助记词功能
+  // 各种设置页面的处理方法
+  void _showAccountManagement() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('导出助记词功能开发中...'),
-        backgroundColor: Colors.orange,
+        content: Text('账户管理功能开发中...'),
+        backgroundColor: Color(0xFF6366F1),
       ),
     );
   }
 
-  void _showRpcConfigDialog() {
-    // TODO: 实现RPC配置功能
+  void _showPreferences() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('RPC配置功能开发中...'),
-        backgroundColor: Colors.orange,
+        content: Text('偏好设置功能开发中...'),
+        backgroundColor: Color(0xFF6366F1),
       ),
     );
   }
 
-  void _showChangePasswordDialog() {
-    // TODO: 实现修改密码功能
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('修改密码功能开发中...'),
-        backgroundColor: Colors.orange,
+  void _showSecuritySettings() {
+    // 导航到安全设置页面
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const SecuritySettingsScreen(),
       ),
     );
   }
 
-  void _showAboutDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF1A1B23),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Text(
-            '关于',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          content: const Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Harbor',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              SizedBox(height: 8),
-              Text(
-                '版本: v1.0.0',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 14,
-                ),
-              ),
-              SizedBox(height: 16),
-              Text(
-                '一个支持多链的加密货币钱包应用，支持以太坊、Solana、比特币等主流区块链网络。',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6366F1),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text('确定'),
-            ),
-          ],
-        );
-      },
+  void _showNetworkSettings() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('网络设置功能开发中...'),
+        backgroundColor: Color(0xFF6366F1),
+      ),
+    );
+  }
+
+  void _showAddressBook() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('地址簿功能开发中...'),
+        backgroundColor: Color(0xFF6366F1),
+      ),
+    );
+  }
+
+  void _showConnectedApps() {
+    Navigator.pushNamed(context, '/walletconnect-sessions');
+  }
+
+  void _showDeveloperSettings() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('开发者设置功能开发中...'),
+        backgroundColor: Color(0xFF6366F1),
+      ),
+    );
+  }
+
+  void _showHelpAndSupport() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('帮助与支持功能开发中...'),
+        backgroundColor: Color(0xFF6366F1),
+      ),
+    );
+  }
+
+  void _showInviteFriends() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('邀请好友功能开发中...'),
+        backgroundColor: Color(0xFF6366F1),
+      ),
     );
   }
 }
