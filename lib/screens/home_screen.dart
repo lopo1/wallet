@@ -1802,7 +1802,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: () {
-            Navigator.pushNamed(context, '/transaction_history');
+            Navigator.pushNamed(
+              context, 
+              '/token_detail',
+              arguments: {
+                'asset': asset,
+                'balance': balance,
+                'usdValue': value,
+                'change24h': change24h,
+              },
+            );
           },
           child: Padding(
             padding: const EdgeInsets.all(16),

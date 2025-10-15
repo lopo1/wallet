@@ -620,9 +620,10 @@ class WalletProvider extends ChangeNotifier {
   Future<void> updateWalletAddressesAndIndexes(
       String walletId,
       Map<String, List<String>> addresses,
-      Map<String, int> addressIndexes) async {
+      Map<String, int> addressIndexes,
+      [Map<String, String>? addressNames]) async {
     await _storageService.updateWalletAddressesAndIndexes(
-        walletId, addresses, addressIndexes);
+        walletId, addresses, addressIndexes, addressNames);
 
     // Update local wallet object
     final walletIndex = _wallets.indexWhere((w) => w.id == walletId);
@@ -630,6 +631,7 @@ class WalletProvider extends ChangeNotifier {
       final updatedWallet = _wallets[walletIndex].copyWith(
         addresses: addresses,
         addressIndexes: addressIndexes,
+        addressNames: addressNames ?? _wallets[walletIndex].addressNames,
       );
       _wallets[walletIndex] = updatedWallet;
 

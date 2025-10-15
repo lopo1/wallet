@@ -24,6 +24,7 @@ import 'screens/set_new_password_screen.dart';
 import 'screens/confirm_password_screen.dart';
 import 'screens/import_mnemonic_screen.dart';
 import 'screens/hot_tokens_screen.dart';
+import 'screens/token_detail_screen.dart';
 
 import 'services/walletconnect_service.dart';
 import 'services/solana_wallet_service.dart';
@@ -117,6 +118,17 @@ class MyApp extends StatelessWidget {
               if (settings.name == '/send_detail') {
                 return MaterialPageRoute(
                   builder: (context) => const SendDetailScreen(),
+                  settings: settings,
+                );
+              }
+              if (settings.name == '/token_detail') {
+                final args = settings.arguments as Map<String, dynamic>?;
+                return MaterialPageRoute(
+                  builder: (context) => TokenDetailScreen(
+                    asset: args?['asset'] ?? {},
+                    balance: args?['balance'] ?? 0.0,
+                    usdValue: args?['usdValue'] ?? 0.0,
+                  ),
                   settings: settings,
                 );
               }

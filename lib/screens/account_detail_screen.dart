@@ -29,30 +29,6 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
     super.dispose();
   }
 
-  String _getCurrentAddressDisplayName(dynamic currentWallet, WalletProvider walletProvider) {
-    final currentAddress = walletProvider.getCurrentNetworkAddress();
-    if (currentAddress == null) {
-      return '未知地址';
-    }
-    
-    // 检查是否有自定义名称
-    final customName = currentWallet.addressNames[currentAddress];
-    if (customName != null && customName.isNotEmpty) {
-      return customName;
-    }
-    
-    // 如果没有自定义名称，显示默认格式：钱包名称 + 地址索引
-    final networkAddresses = currentWallet.addresses[walletProvider.currentNetwork?.id] ?? [];
-    final addressIndex = networkAddresses.indexOf(currentAddress);
-    if (addressIndex >= 0) {
-      return '${currentWallet.name} #${addressIndex + 1}';
-    }
-    
-    return currentWallet.name;
-  }
-
-
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -239,61 +215,175 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
   Widget _buildAddressSection() {
     return Consumer<WalletProvider>(
       builder: (context, walletProvider, child) {
-        final currentAddress = walletProvider.getCurrentNetworkAddress();
+        final currentWallet = walletProvider.currentWallet;
+        final currentNetwork = walletProvider.currentNetwork;
+        
+        if (currentWallet == null || currentNetwork == null) {
+          return const SizedBox.shrink();
+        }
+
+        final addressList = currentWallet.addresses[currentNetwork.id] ?? [];
+        
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              '当前地址',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '${currentNetwork.name} 地址列表',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+                Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF6366F1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: IconButton(
+                    onPressed: () => _generateNewAddress(walletProvider),
+                    icon: const Icon(Icons.add, color: Colors.white, size: 20),
+                    constraints: const BoxConstraints(
+                      minWidth: 36,
+                      minHeight: 36,
+                    ),
+                    padding: EdgeInsets.zero,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: const Color(0xFF1A1B23),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.white24),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${walletProvider.currentNetwork?.name ?? ''} 地址',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.white70,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: SelectableText(
-                          currentAddress ?? '暂无地址',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontFamily: 'monospace',
-                            color: Colors.white,
+              child: addressList.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.account_balance_wallet_outlined,
+                            size: 48,
+                            color: Colors.white70,
                           ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            '暂无地址',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            '点击右上角加号生成新地址',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(12),
+                      itemCount: addressList.length,
+                      separatorBuilder: (context, index) => const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final address = addressList[index];
+                        final addressName = currentWallet.addressNames[address] ?? 
+                            '${currentWallet.name} #${index + 1}';
+                        
+                        return Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0F1117),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.white12),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      addressName,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    onPressed: () => _copyAddress(address),
+                                    icon: const Icon(Icons.copy, color: Colors.white70, size: 16),
+                                    constraints: const BoxConstraints(
+                                      minWidth: 32,
+                                      minHeight: 32,
+                                    ),
+                                    padding: EdgeInsets.zero,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              SelectableText(
+                                address,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontFamily: 'monospace',
+                                  color: Colors.white70,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            if (addressList.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.blue.withOpacity(0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      size: 16,
+                      color: Colors.blue.shade300,
+                    ),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        '点击复制按钮可将地址复制到剪贴板，所有地址均由同一助记词安全生成',
+                        style: TextStyle(
+                          color: Colors.blue,
+                          fontSize: 12,
                         ),
                       ),
-                      IconButton(
-                        onPressed: currentAddress != null
-                            ? () => _copyAddress(currentAddress)
-                            : null,
-                        icon: const Icon(Icons.copy, color: Colors.white70, size: 18),
-                      ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
-            ),
+            ],
           ],
         );
       },
@@ -408,6 +498,116 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
     setState(() {
       _isEditingName = !_isEditingName;
     });
+  }
+
+  void _generateNewAddress(WalletProvider walletProvider) async {
+    final currentWallet = walletProvider.currentWallet;
+    final currentNetwork = walletProvider.currentNetwork;
+    
+    if (currentWallet == null || currentNetwork == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('无法获取当前钱包或网络信息'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // 检查钱包是否是通过助记词导入的
+    if (currentWallet.importType != 'mnemonic') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('只有通过助记词导入的钱包才能生成新地址'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    try {
+      // 显示加载状态
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return const AlertDialog(
+            backgroundColor: Color(0xFF1A1B23),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(color: Color(0xFF6366F1)),
+                SizedBox(height: 16),
+                Text(
+                  '正在生成新地址...',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+
+      // 获取当前网络的地址列表
+      final addressList = currentWallet.addresses[currentNetwork.id] ?? [];
+      final nextIndex = addressList.length;
+
+      // 使用AddressService生成新地址
+      final newAddress = await walletProvider.generateAddressForNetworkWithIndex(
+        currentWallet.mnemonic,
+        currentNetwork.id,
+        nextIndex,
+      );
+
+      // 添加新地址到钱包
+      if (currentWallet.addresses[currentNetwork.id] == null) {
+        currentWallet.addresses[currentNetwork.id] = [];
+      }
+      currentWallet.addresses[currentNetwork.id]!.add(newAddress);
+
+      // 更新地址索引
+      currentWallet.addressIndexes[currentNetwork.id] = nextIndex + 1;
+
+      // 设置默认地址名称
+      final defaultName = '${currentWallet.name} #${nextIndex + 1}';
+      currentWallet.addressNames[newAddress] = defaultName;
+
+      // 保存到存储
+      await walletProvider.updateWalletAddressesAndIndexes(
+        currentWallet.id,
+        currentWallet.addresses,
+        currentWallet.addressIndexes,
+        currentWallet.addressNames,
+      );
+
+      // 关闭加载对话框
+      if (mounted) {
+        Navigator.pop(context);
+        
+        // 显示成功消息
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('新地址生成成功: $defaultName'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      // 关闭加载对话框
+      if (mounted) {
+        Navigator.pop(context);
+        
+        // 显示错误消息
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('生成新地址失败: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   void _copyAddress(String address) {
