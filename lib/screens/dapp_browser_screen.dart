@@ -255,22 +255,6 @@ class _DAppBrowserScreenState extends State<DAppBrowserScreen> {
     }
   }
 
-  /// 切换收藏状态
-  Future<void> _toggleFavorite() async {
-    if (_currentOrigin != null) {
-      await _connectionService.toggleFavorite(_currentOrigin!);
-      _checkFavoriteStatus();
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_isFavorite ? '已添加到收藏' : '已取消收藏'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    }
-  }
 
   /// 导航到URL
   void _navigateToUrl(String url) {

@@ -116,30 +116,30 @@ class AmountUtils {
   static String formatTruncated(dynamic value, {int decimals = 9}) {
     final decimal = _toDecimal(value);
     String str = decimal.toString();
-    
+
     // 如果没有小数点，直接返回
     if (!str.contains('.')) {
       return str;
     }
-    
+
     // 分离整数部分和小数部分
     List<String> parts = str.split('.');
     String integerPart = parts[0];
     String decimalPart = parts[1];
-    
+
     // 截取小数部分到指定位数
     if (decimalPart.length > decimals) {
       decimalPart = decimalPart.substring(0, decimals);
     }
-    
+
     // 移除尾部的0
     decimalPart = decimalPart.replaceAll(RegExp(r'0+$'), '');
-    
+
     // 如果小数部分为空，只返回整数部分
     if (decimalPart.isEmpty) {
       return integerPart;
     }
-    
+
     return '$integerPart.$decimalPart';
   }
 
@@ -259,5 +259,136 @@ class AmountUtils {
     final btcDecimal = _toDecimal(btc);
     final satoshiDecimal = btcDecimal * Decimal.fromInt(100000000);
     return satoshiDecimal.toBigInt().toInt();
+  }
+
+  /// 格式化美元价值显示（固定2位小数）
+  static String formatUsdValue(dynamic value) {
+    // 先检查特殊值
+    if (value is double && (value.isNaN || value.isInfinite)) {
+      return '\$0.00';
+    }
+
+    final decimal = _toDecimal(value);
+
+    final doubleValue = decimal.toDouble();
+    if (doubleValue >= 1000000) {
+      return '\$${(doubleValue / 1000000).toStringAsFixed(2)}M';
+    } else if (doubleValue >= 1000) {
+      return '\$${(doubleValue / 1000).toStringAsFixed(2)}K';
+    } else {
+      return '\$${doubleValue.toStringAsFixed(2)}';
+    }
+  }
+
+  /// 格式化代币余额显示（最多9位小数，截取不四舍五入）
+  static String formatTokenBalance(dynamic balance) {
+    // 先检查特殊值
+    if (balance is double && (balance.isNaN || balance.isInfinite)) {
+      return '0';
+    }
+
+    final decimal = _toDecimal(balance);
+
+    final doubleValue = decimal.toDouble();
+    if (doubleValue >= 1000000) {
+      return '${(doubleValue / 1000000).toStringAsFixed(2)}M';
+    } else if (doubleValue >= 1000) {
+      return '${(doubleValue / 1000).toStringAsFixed(2)}K';
+    } else {
+      return formatTruncated(balance, decimals: 9);
+    }
+  }
+
+  /// 格式化币价显示（4位小数，支持科学计数法表示）
+  static String formatPrice(dynamic price) {
+    // 先检查特殊值
+    if (price is double && (price.isNaN || price.isInfinite)) {
+      return '\$0.0000';
+    }
+
+    final decimal = _toDecimal(price);
+
+    final doubleValue = decimal.toDouble();
+
+    // 如果价格大于等于1，显示4位小数
+    if (doubleValue >= 1) {
+      return '\$${doubleValue.toStringAsFixed(4)}';
+    }
+
+    // 如果价格小于1但大于等于0.0001，显示4位小数
+    if (doubleValue >= 0.0001) {
+      return '\$${doubleValue.toStringAsFixed(4)}';
+    }
+
+    // 如果价格非常小，使用科学计数法表示
+    if (doubleValue > 0) {
+      // 计算前导零的个数
+      String str = doubleValue.toStringAsExponential();
+
+      // 转换为 0.{n}x 格式
+      if (str.contains('e-')) {
+        List<String> parts = str.split('e-');
+        double coefficient = double.parse(parts[0]);
+        int exponent = int.parse(parts[1]);
+
+        // 如果指数大于6，使用 0.{n}x 格式
+        if (exponent > 6) {
+          int zeros = exponent - 1;
+          String coefficientStr = coefficient.toStringAsFixed(1);
+          // 移除小数点
+          coefficientStr = coefficientStr.replaceAll('.', '');
+          return '\$0.{$zeros}$coefficientStr';
+        }
+      }
+    }
+
+    return '\$${doubleValue.toStringAsFixed(4)}';
+  }
+
+  /// 格式化百分比变化（移除尾部的0）
+  static String formatPercentageChange(double change) {
+    // 先检查特殊值
+    if (change.isNaN || change.isInfinite) {
+      return '0%';
+    }
+
+    // 格式化为2位小数
+    String formatted = change.toStringAsFixed(2);
+
+    // 移除尾部的0和小数点
+    if (formatted.contains('.')) {
+      formatted = formatted.replaceAll(RegExp(r'0+$'), '');
+      formatted = formatted.replaceAll(RegExp(r'\.$'), '');
+    }
+
+    // 特殊处理0的情况
+    if (change == 0.0 || formatted == '0') {
+      return '0%';
+    }
+
+    return '${change > 0 ? '+' : ''}$formatted%';
+  }
+}
+
+/// 格式化工具类 - 提供便捷的静态方法
+class FormatUtils {
+  /// 格式化美元价值显示（固定2位小数）
+  static String formatValue(double value) {
+    return AmountUtils.formatUsdValue(value);
+  }
+
+  /// 格式化代币余额显示（最多9位小数）
+  static String formatBalance(double balance) {
+    return AmountUtils.formatTokenBalance(balance);
+  }
+
+  /// 格式化币价显示（4位小数或科学计数法）
+  static String formatPrice(double price) {
+    return AmountUtils.formatPrice(price);
+  }
+
+  /// 格式化百分比变化
+  static String formatChange(double change) {
+    return AmountUtils.formatPercentageChange(change);
   }
 }

@@ -305,21 +305,6 @@ class _AddressSelectionScreenState extends State<AddressSelectionScreen> {
     );
   }
 
-  // 确认选择
-  void _confirmSelection() {
-    if (_selectedAddress != null) {
-      Navigator.pushNamed(
-        context,
-        '/send_detail',
-        arguments: {
-          'network': widget.network,
-          'address': _selectedAddress!,
-          if (widget.preselectedToken != null) 'preselectedToken': widget.preselectedToken,
-        },
-      );
-    }
-  }
-
   // 获取网络颜色
   Color _getNetworkColor(String networkId) {
     switch (networkId) {
@@ -347,64 +332,5 @@ class _AddressSelectionScreenState extends State<AddressSelectionScreen> {
         return const Color(0xFF26D0CE);
     }
   }
-
-  // 显示所有地址的对话框
-  void _showAllAddressesDialog(List<String> addresses, dynamic currentWallet) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A2E),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        title: const Text(
-          '选择地址',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          height: 400,
-          child: ListView.builder(
-            itemCount: addresses.length,
-            itemBuilder: (context, index) {
-              final address = addresses[index];
-              final addressName = currentWallet.addressNames[address] ?? '地址 ${index + 1}';
-              
-              return ListTile(
-                title: Text(
-                  addressName,
-                  style: const TextStyle(color: Colors.white),
-                ),
-                subtitle: Text(
-                  '${address.substring(0, 8)}...${address.substring(address.length - 8)}',
-                  style: const TextStyle(color: Colors.white70),
-                ),
-                onTap: () {
-                  Navigator.pop(context); // 关闭对话框
-                  Navigator.pushNamed(
-                    context,
-                    '/send_detail',
-                    arguments: {
-                      'network': widget.network,
-                      'address': address,
-                      if (widget.preselectedToken != null) 'preselectedToken': widget.preselectedToken,
-                    },
-                  );
-                },
-              );
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              '取消',
-              style: TextStyle(color: Color(0xFF6C5CE7)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  
 }

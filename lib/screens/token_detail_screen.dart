@@ -5,7 +5,6 @@ import '../providers/wallet_provider.dart';
 import '../models/token.dart';
 import '../utils/amount_utils.dart';
 import 'receive_screen.dart';
-import 'send_screen.dart';
 import 'swap_screen.dart';
 import 'address_selection_screen.dart';
 
@@ -31,7 +30,6 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
   static const Color cardBackground = Color(0xFF1A1D29);
   static const Color accentColor = Color(0xFF6366F1);
   static const Color successColor = Color(0xFF10B981);
-  static const Color warningColor = Color(0xFFF59E0B);
   static const Color textPrimary = Color(0xFFFFFFFF);
   static const Color textSecondary = Color(0xFF94A3B8);
 
@@ -936,61 +934,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
     });
   }
 
-  // 显示所有地址的对话框
-  void _showAllAddressesDialog(List<String> addresses, dynamic currentWallet) {
-    // 使用 addPostFrameCallback 来避免在 build 过程中调用 setState
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          backgroundColor: const Color(0xFF1A1A2E),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Text(
-            '选择地址',
-            style: TextStyle(color: Colors.white),
-          ),
-          content: SizedBox(
-            width: double.maxFinite,
-            height: 400,
-            child: ListView.builder(
-              itemCount: addresses.length,
-              itemBuilder: (context, index) {
-                final address = addresses[index];
-                final addressName = currentWallet.addressNames[address] ?? '地址 ${index + 1}';
-                
-                return ListTile(
-                  title: Text(
-                    addressName,
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                  subtitle: Text(
-                    '${address.substring(0, 8)}...${address.substring(address.length - 8)}',
-                    style: const TextStyle(color: Colors.white70),
-                  ),
-                  onTap: () {
-                    Navigator.pop(context); // 关闭对话框
-                    _navigateToSendWithAddress(address); // 跳转到发送页面
-                  },
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text(
-                '取消',
-                style: TextStyle(color: Colors.white70),
-              ),
-            ),
-          ],
-        ),
-      );
-    });
-  }
-
+  
   void _navigateToSwap() {
     Navigator.push(
       context,

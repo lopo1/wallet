@@ -290,42 +290,58 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
 
                 // 网络名称和地址
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        network.name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 300),
-                        child: isCopied
-                            ? Text(
-                                '已复制',
-                                key: ValueKey('copied_$primaryAddressKey'),
-                                style: const TextStyle(
-                                  color: Colors.green,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              )
-                            : Text(
-                                primaryAddress != null
-                                    ? '${primaryAddress.substring(0, 6)}...${primaryAddress.substring(primaryAddress.length - 4)}'
-                                    : '暂无地址',
-                                key: ValueKey('address_$primaryAddressKey'),
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 14,
+                  child: GestureDetector(
+                    onTap: primaryAddress != null
+                        ? () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => QRDisplayScreen(
+                                  address: primaryAddress,
+                                  networkName: network.name,
+                                  networkSymbol: network.symbol,
                                 ),
                               ),
-                      ),
-                    ],
+                            );
+                          }
+                        : null,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          network.name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 300),
+                          child: isCopied
+                              ? Text(
+                                  '已复制',
+                                  key: ValueKey('copied_$primaryAddressKey'),
+                                  style: const TextStyle(
+                                    color: Colors.green,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                )
+                              : Text(
+                                  primaryAddress != null
+                                      ? '${primaryAddress.substring(0, 6)}...${primaryAddress.substring(primaryAddress.length - 4)}'
+                                      : '暂无地址',
+                                  key: ValueKey('address_$primaryAddressKey'),
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
 
@@ -452,28 +468,67 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
 
                         // 地址
                         Expanded(
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 300),
-                            child: isAddressCopied
-                                ? Text(
-                                    '已复制',
-                                    key: ValueKey('copied_$addressKey'),
-                                    style: const TextStyle(
-                                      color: Colors.green,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  )
-                                : Text(
-                                    '${address.substring(0, 6)}...${address.substring(address.length - 4)}',
-                                    key: ValueKey('address_$addressKey'),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 14,
-                                    ),
+                          child: GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => QRDisplayScreen(
+                                    address: address,
+                                    networkName: network.name,
+                                    networkSymbol: network.symbol,
                                   ),
+                                ),
+                              );
+                            },
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 300),
+                              child: isAddressCopied
+                                  ? Text(
+                                      '已复制',
+                                      key: ValueKey('copied_$addressKey'),
+                                      style: const TextStyle(
+                                        color: Colors.green,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    )
+                                  : Text(
+                                      '${address.substring(0, 6)}...${address.substring(address.length - 4)}',
+                                      key: ValueKey('address_$addressKey'),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                            ),
                           ),
                         ),
+
+                        // QR码按钮
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => QRDisplayScreen(
+                                  address: address,
+                                  networkName: network.name,
+                                  networkSymbol: network.symbol,
+                                ),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            child: const Icon(
+                              Icons.qr_code,
+                              color: Colors.white70,
+                              size: 18,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
 
                         // 复制按钮
                         GestureDetector(

@@ -11,6 +11,7 @@ import '../services/address_count_service.dart';
 import 'transaction_history_screen.dart';
 import 'buy_crypto_screen.dart';
 import '../utils/amount_utils.dart';
+import '../widgets/overlaid_token_icon.dart';
 
 import '../widgets/blockchain_address_list.dart';
 import '../models/blockchain_address.dart';
@@ -44,15 +45,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   static const Color textPrimary = Color(0xFFFFFFFF);
   static const Color textSecondary = Color(0xFF94A3B8);
 
-  // 上传相关状态
-  final List<dynamic> _uploadedFiles = [];
-  bool _isUploading = false;
-  double _uploadProgress = 0.0;
-
   // 区块链地址数据
   final List<Map<String, dynamic>> _blockchainAddresses = [];
-  bool _isLoadingAddresses = false;
-  
+
   // 地址数量缓存
   Map<String, int> _addressCounts = {};
   bool _isLoadingAddressCounts = false;
@@ -70,7 +65,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   // 加载地址数量
   Future<void> _loadAddressCounts() async {
     if (_isLoadingAddressCounts) return;
-    
+
     setState(() {
       _isLoadingAddressCounts = true;
     });
@@ -78,13 +73,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     try {
       final assets = _getAllAssets();
       final Map<String, int> counts = {};
-      
+
       for (final asset in assets) {
         final chainId = asset['id'] as String;
         final count = await AddressCountService.getAddressCount(chainId);
         counts[chainId] = count;
       }
-      
+
       setState(() {
         _addressCounts = counts;
         _isLoadingAddressCounts = false;
@@ -318,73 +313,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
-  // 文件上传相关方法
-  void _handleFileSelection() {
-    setState(() {
-      _isUploading = true;
-      _uploadProgress = 0.0;
-    });
-
-    // 模拟文件上传过程
-    _simulateFileUpload();
-  }
-
-  void _simulateFileUpload() {
-    // 模拟上传进度
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (mounted) {
-        setState(() {
-          _uploadProgress = 0.3;
-        });
-      }
-    });
-
-    Future.delayed(const Duration(milliseconds: 1000), () {
-      if (mounted) {
-        setState(() {
-          _uploadProgress = 0.7;
-        });
-      }
-    });
-
-    Future.delayed(const Duration(milliseconds: 1500), () {
-      if (mounted) {
-        setState(() {
-          _uploadProgress = 1.0;
-          _isUploading = false;
-          _uploadedFiles.add({
-            'name':
-                'wallet_backup_${DateTime.now().millisecondsSinceEpoch}.json',
-            'size': '2.5 MB',
-            'uploadTime': DateTime.now().toString(),
-          });
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('文件上传成功！'),
-            duration: const Duration(seconds: 2),
-            backgroundColor: successColor,
-          ),
-        );
-      }
-    });
-  }
-
-  void _handleFileRemoval(int index) {
-    setState(() {
-      _uploadedFiles.removeAt(index);
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('文件已移除'),
-        duration: const Duration(seconds: 1),
-        backgroundColor: warningColor,
-      ),
-    );
-  }
-
   // 显示接收页面
   void _showReceiveUploadDialog() {
     Navigator.pushNamed(context, '/receive');
@@ -488,8 +416,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: IconButton(
-                  icon:
-                      const Icon(Icons.search, color: _HomeScreenState.textSecondary, size: 16),
+                  icon: const Icon(Icons.search,
+                      color: _HomeScreenState.textSecondary, size: 16),
                   onPressed: () {
                     Navigator.pushNamed(context, '/hot-tokens');
                   },
@@ -584,12 +512,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      _formatValue(_totalPortfolioValue),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        FormatUtils.formatValue(_totalPortfolioValue),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ],
@@ -711,7 +642,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ),
             const SizedBox(height: 4),
             Text(
-              '≈${_formatValue(0)}', // 可替换为真实估值
+              '≈${FormatUtils.formatValue(0)}', // 可替换为真实估值
               style: const TextStyle(color: Colors.white70, fontSize: 12),
             ),
             const SizedBox(height: 8),
@@ -972,129 +903,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildModernDesktopHeader() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: cardBackground,
-        border: Border(
-          bottom: BorderSide(
-            color: _HomeScreenState.accentColor.withOpacity(0.1),
-            width: 1,
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Consumer<WalletProvider>(
-              builder: (context, walletProvider, _) {
-                final address = walletProvider.getCurrentNetworkAddress();
-                final networkName = walletProvider.currentNetwork?.name ?? '';
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          'Wallet',
-                          style: TextStyle(
-                            color: _HomeScreenState.textPrimary,
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        if (networkName.isNotEmpty)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: _HomeScreenState.accentColor.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 6,
-                                  height: 6,
-                                  decoration: const BoxDecoration(
-                                    color: _HomeScreenState.accentColor,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  networkName,
-                                  style: const TextStyle(
-                                    color: _HomeScreenState.textSecondary,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            address != null ? _shortenAddress(address) : '暂无地址',
-                            style: const TextStyle(
-                              color: _HomeScreenState.textSecondary,
-                              fontSize: 12,
-                              fontFamily: 'monospace',
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.copy,
-                              color: _HomeScreenState.textSecondary, size: 18),
-                          onPressed:
-                              address != null ? () => _copyText(address) : null,
-                          tooltip: '复制地址',
-                        ),
-                      ],
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.qr_code_scanner, color: _HomeScreenState.textPrimary),
-            onPressed: () {
-              Navigator.pushNamed(context, '/qr_scanner');
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _scrollController.dispose();
     super.dispose();
-  }
-
-  Widget _buildDrawer() {
-    return Drawer(
-      backgroundColor: primaryBackground,
-      child: SafeArea(
-        child: Sidebar(
-          onCollapseChanged: (isCollapsed) {
-            setState(() {
-              _isSidebarCollapsed = isCollapsed;
-            });
-          },
-        ),
-      ),
-    );
   }
 
   @override
@@ -1181,6 +994,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         'icon': Icons.currency_bitcoin,
         'color': const Color(0xFF627EEA),
         'price': 2000.0,
+        'change24h': 2.34,
         'isNative': true,
       },
       {
@@ -1190,6 +1004,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         'icon': Icons.hexagon,
         'color': const Color(0xFF8247E5),
         'price': 0.8,
+        'change24h': -1.23,
         'isNative': true,
       },
       {
@@ -1199,6 +1014,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         'icon': Icons.currency_exchange,
         'color': const Color(0xFFF3BA2F),
         'price': 300.0,
+        'change24h': 5.67,
         'isNative': true,
       },
       {
@@ -1208,6 +1024,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         'icon': Icons.currency_bitcoin,
         'color': const Color(0xFFF7931A),
         'price': 45000.0,
+        'change24h': 3.45,
         'isNative': true,
       },
       {
@@ -1217,6 +1034,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         'icon': Icons.wb_sunny,
         'color': const Color(0xFF9945FF),
         'price': 100.0,
+        'change24h': -2.18,
         'isNative': true,
       },
     ];
@@ -1244,78 +1062,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         '总资产数量: ${allAssets.length} (原生: ${nativeAssets.length}, 自定义: ${customAssets.length})');
 
     return allAssets;
-  }
-
-  /// 格式化价值显示
-  String _formatValue(double value) {
-    if (value.isNaN || value.isInfinite) {
-      return '\$0.00';
-    }
-    if (value >= 1000000) {
-      return '\$${(value / 1000000).toStringAsFixed(2)}M';
-    } else if (value >= 1000) {
-      return '\$${(value / 1000).toStringAsFixed(2)}K';
-    } else if (value >= 1) {
-      return "\$${value.toStringAsFixed(2)}";
-    } else {
-      return "\$${value.toStringAsFixed(4)}";
-    }
-  }
-
-  /// 格式化余额显示
-  String _formatBalance(double balance) {
-    if (balance.isNaN || balance.isInfinite) {
-      return '0.0000';
-    }
-    if (balance >= 1000000) {
-      return '${(balance / 1000000).toStringAsFixed(2)}M';
-    } else if (balance >= 1000) {
-      return '${(balance / 1000).toStringAsFixed(2)}K';
-    } else if (balance >= 1) {
-      // 使用截取方式，最多显示9位小数
-      return AmountUtils.formatTruncated(balance, decimals: 9);
-    } else {
-      // 使用截取方式，最多显示9位小数
-      return AmountUtils.formatTruncated(balance, decimals: 9);
-    }
-  }
-
-  /// 格式化百分比变化
-  String _formatChange(double change) {
-    return '${change >= 0 ? '+' : ''}${change.toStringAsFixed(2)}%';
-  }
-
-  /// 地址缩写
-  String _shortenAddress(String address) {
-    if (address.isEmpty) return '';
-    if (address.length <= 12) return address;
-    return '${address.substring(0, 6)}…${address.substring(address.length - 4)}';
-  }
-
-  /// 复制文本到剪贴板并提示
-  void _copyText(String text) {
-    Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已复制到剪贴板')),
-    );
-  }
-
-  /// 获取网络颜色
-  Color _getNetworkColor(String networkId) {
-    switch (networkId) {
-      case 'ethereum':
-        return const Color(0xFF627EEA); // Ethereum blue
-      case 'polygon':
-        return const Color(0xFF8247E5); // Polygon purple
-      case 'bsc':
-        return const Color(0xFFF3BA2F); // BNB yellow
-      case 'bitcoin':
-        return const Color(0xFFF7931A); // Bitcoin orange
-      case 'solana':
-        return const Color(0xFF9945FF); // Solana purple
-      default:
-        return _HomeScreenState.accentColor; // Default to accent color
-    }
   }
 
   @override
@@ -1379,18 +1125,27 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         controller: _scrollController,
         padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
             _buildModernPortfolioContent(),
-            const SizedBox(height: 16),
+            const SizedBox(height: 2),
             _buildFixedActionButtons(),
             const SizedBox(height: 24),
-            _buildModernAssetsHeader(),
-            const SizedBox(height: 16),
-            _selectedTabIndex == 0
-                ? _buildModernAssetsList()
-                : _buildModernCollectiblesList(),
+            // 资产列表部分保持左对齐
+            SizedBox(
+              width: double.infinity,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildModernAssetsHeader(),
+                  const SizedBox(height: 16),
+                  _selectedTabIndex == 0
+                      ? _buildModernAssetsList()
+                      : _buildModernCollectiblesList(),
+                ],
+              ),
+            ),
             const SizedBox(height: 80),
           ],
         ),
@@ -1408,7 +1163,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-
   Widget _buildModernPortfolioContent() {
     final isMobile = MediaQuery.of(context).size.width < 768;
 
@@ -1421,38 +1175,46 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           Consumer<WalletProvider>(
             builder: (context, walletProvider, _) {
               return Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Text(
-                    '\$${_formatBalance(_totalPortfolioValue)}',
-                    style: TextStyle(
-                      color: _HomeScreenState.textPrimary,
-                      fontSize: isMobile ? 48 : 56,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -1.5,
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      FormatUtils.formatValue(_totalPortfolioValue),
+                      style: TextStyle(
+                        color: _HomeScreenState.textPrimary,
+                        fontSize: isMobile ? 48 : 56,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -1.5,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        '+\$${_formatBalance(_portfolioChange24h)}',
-                        style: TextStyle(
-                          color: successColor,
-                          fontSize: isMobile ? 16 : 18,
-                          fontWeight: FontWeight.w600,
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          '+${FormatUtils.formatValue(_portfolioChange24h)}',
+                          style: TextStyle(
+                            color: successColor,
+                            fontSize: isMobile ? 16 : 18,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '+100%',
-                        style: TextStyle(
-                          color: successColor,
-                          fontSize: isMobile ? 16 : 18,
-                          fontWeight: FontWeight.w600,
+                        const SizedBox(width: 8),
+                        Text(
+                          '+100%',
+                          style: TextStyle(
+                            color: successColor,
+                            fontSize: isMobile ? 16 : 18,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               );
@@ -1489,7 +1251,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       },
     );
   }
-
 
   Widget _buildFixedActionButtons() {
     return Container(
@@ -1585,7 +1346,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ),
     );
   }
-  
+
   Widget _buildModernAssetsHeader() {
     return Row(
       children: [
@@ -1613,15 +1374,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           color: isSelected ? _HomeScreenState.accentColor : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color:
-                isSelected ? Colors.transparent : _HomeScreenState.accentColor.withOpacity(0.3),
+            color: isSelected
+                ? Colors.transparent
+                : _HomeScreenState.accentColor.withOpacity(0.3),
             width: 1,
           ),
         ),
         child: Text(
           text,
           style: TextStyle(
-            color: isSelected ? _HomeScreenState.textPrimary : _HomeScreenState.textSecondary,
+            color: isSelected
+                ? _HomeScreenState.textPrimary
+                : _HomeScreenState.textSecondary,
             fontSize: 14,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
           ),
@@ -1643,17 +1407,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         maxWidth: 250,
       ),
       child: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: _HomeScreenState.accentColor.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            Icons.more_horiz,
-            color: _HomeScreenState.textSecondary,
-            size: 20,
-          ),
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: _HomeScreenState.accentColor.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
         ),
+        child: Icon(
+          Icons.more_horiz,
+          color: _HomeScreenState.textSecondary,
+          size: 20,
+        ),
+      ),
       itemBuilder: (BuildContext context) => [
         PopupMenuItem<String>(
           value: 'manage_tokens',
@@ -1661,12 +1425,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             width: double.infinity,
             child: Row(
               children: [
-                Icon(Icons.token, color: _HomeScreenState.accentColor, size: 18),
+                Icon(Icons.token,
+                    color: _HomeScreenState.accentColor, size: 18),
                 SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     'Manage Tokens',
-                    style: TextStyle(color: _HomeScreenState.textPrimary, fontSize: 14),
+                    style: TextStyle(
+                        color: _HomeScreenState.textPrimary, fontSize: 14),
                   ),
                 ),
               ],
@@ -1694,7 +1460,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         walletProvider.isBalanceHidden
                             ? 'Show Balance'
                             : 'Hide Balance',
-                        style: TextStyle(color: _HomeScreenState.textPrimary, fontSize: 14),
+                        style: TextStyle(
+                            color: _HomeScreenState.textPrimary, fontSize: 14),
                       ),
                     ),
                   ],
@@ -1709,12 +1476,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             width: double.infinity,
             child: Row(
               children: [
-                Icon(Icons.settings, color: _HomeScreenState.textSecondary, size: 18),
+                Icon(Icons.settings,
+                    color: _HomeScreenState.textSecondary, size: 18),
                 SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     'Wallet Settings',
-                    style: TextStyle(color: _HomeScreenState.textPrimary, fontSize: 14),
+                    style: TextStyle(
+                        color: _HomeScreenState.textPrimary, fontSize: 14),
                   ),
                 ),
               ],
@@ -1727,12 +1496,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             width: double.infinity,
             child: Row(
               children: [
-                Icon(Icons.refresh, color: _HomeScreenState.textSecondary, size: 18),
+                Icon(Icons.refresh,
+                    color: _HomeScreenState.textSecondary, size: 18),
                 SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     'Refresh',
-                    style: TextStyle(color: _HomeScreenState.textPrimary, fontSize: 14),
+                    style: TextStyle(
+                        color: _HomeScreenState.textPrimary, fontSize: 14),
                   ),
                 ),
               ],
@@ -1750,7 +1521,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 Expanded(
                   child: Text(
                     'Add Token',
-                    style: TextStyle(color: _HomeScreenState.textPrimary, fontSize: 14),
+                    style: TextStyle(
+                        color: _HomeScreenState.textPrimary, fontSize: 14),
                   ),
                 ),
               ],
@@ -1803,7 +1575,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           borderRadius: BorderRadius.circular(16),
           onTap: () {
             Navigator.pushNamed(
-              context, 
+              context,
               '/token_detail',
               arguments: {
                 'asset': asset,
@@ -1815,231 +1587,237 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           },
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                // 资产图标
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: (asset['color'] as Color).withOpacity(0.1),
-                    shape: BoxShape.circle,
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // 资产图标
+                  TokenWithNetworkIcon(
+                    asset: asset,
+                    size: 48,
                   ),
-                  child: Center(
-                    child: asset['logoUrl'] != null
-                        ? ClipOval(
-                            child: Image.network(
-                              asset['logoUrl']!,
-                              width: 32,
-                              height: 32,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Icon(
-                                  asset['icon'] as IconData,
-                                  color: asset['color'] as Color,
-                                  size: 24,
-                                );
-                              },
-                            ),
-                          )
-                        : Icon(
-                            asset['icon'] as IconData,
-                            color: asset['color'] as Color,
-                            size: 24,
-                          ),
-                  ),
-                ),
-                const SizedBox(width: 16),
+                  const SizedBox(width: 12),
 
-                // 资产信息
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            asset['name'] as String,
-                            style: const TextStyle(
-                              color: _HomeScreenState.textPrimary,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
+                  // 资产信息
+                  Expanded(
+                    flex: 2,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // 第一行：币种symbol和标签
+                        Row(
+                          children: [
+                            Flexible(
+                              flex: 3,
+                              child: Text(
+                                asset['symbol'] as String,
+                                style: const TextStyle(
+                                  color: _HomeScreenState.textPrimary,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                          ),
-                          // 显示地址数量
-                          if (_addressCounts.containsKey(asset['id'])) ...[
-                            const SizedBox(width: 8),
+                            if (asset['isNative'] == false) ...[
+                              const SizedBox(width: 4),
+                              Flexible(
+                                flex: 1,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: _HomeScreenState.accentColor
+                                        .withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    'Custom',
+                                    style: TextStyle(
+                                      color: _HomeScreenState.accentColor,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        // 第二行：币价和涨跌
+                        Row(
+                          children: [
+                            // 显示币价
+                            Expanded(
+                              child: Text(
+                                FormatUtils.formatPrice(
+                                    asset['price'] as double),
+                                style: TextStyle(
+                                  color: _HomeScreenState.textSecondary
+                                      .withOpacity(0.8),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            // 显示涨跌
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
+                                horizontal: 4,
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: successColor.withOpacity(0.2),
+                                color: change24h >= 0
+                                    ? successColor.withOpacity(0.2)
+                                    : Colors.red.withOpacity(0.2),
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: Text(
-                                '${AddressCountService.formatAddressCount(_addressCounts[asset['id']]!)} 地址',
-                                style: TextStyle(
-                                  color: successColor,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ],
-                          if (asset['isNative'] == false) ...[
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _HomeScreenState.accentColor.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                'Custom',
-                                style: TextStyle(
-                                  color: _HomeScreenState.accentColor,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Text(
-                            asset['symbol'] as String,
-                            style: TextStyle(
-                              color: _HomeScreenState.textSecondary.withOpacity(0.7),
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: change24h >= 0
-                                  ? successColor.withOpacity(0.2)
-                                  : Colors.red.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  change24h >= 0
-                                      ? Icons.trending_up
-                                      : Icons.trending_down,
-                                  color: change24h >= 0
-                                      ? successColor
-                                      : Colors.red,
-                                  size: 12,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  _formatChange(change24h),
-                                  style: TextStyle(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    change24h >= 0
+                                        ? Icons.trending_up
+                                        : Icons.trending_down,
                                     color: change24h >= 0
                                         ? successColor
                                         : Colors.red,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
+                                    size: 10,
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    FormatUtils.formatChange(change24h),
+                                    style: TextStyle(
+                                      color: change24h >= 0
+                                          ? successColor
+                                          : Colors.red,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(width: 8),
+
+                  // 余额和价值
+                  Expanded(
+                    flex: 1,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 120),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              isBalanceHidden
+                                  ? '****'
+                                  : FormatUtils.formatBalance(balance),
+                              style: const TextStyle(
+                                color: _HomeScreenState.textPrimary,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 120),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              isBalanceHidden
+                                  ? '****'
+                                  : FormatUtils.formatValue(value),
+                              style: TextStyle(
+                                color: _HomeScreenState.textSecondary
+                                    .withOpacity(0.7),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // 自定义代币的移除按钮
+                  if (asset['isNative'] == false) ...[
+                    const SizedBox(width: 8),
+                    Align(
+                      alignment: Alignment.center,
+                      child: PopupMenuButton<String>(
+                        color: cardBackground,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          side: BorderSide(
+                              color: _HomeScreenState.accentColor
+                                  .withOpacity(0.2)),
+                        ),
+                        itemBuilder: (BuildContext context) => [
+                          PopupMenuItem<String>(
+                            value: 'remove',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.delete_outline,
+                                  color: Colors.red.withOpacity(0.8),
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Remove',
+                                  style: TextStyle(
+                                    color: Colors.red.withOpacity(0.8),
+                                    fontSize: 14,
                                   ),
                                 ),
                               ],
                             ),
                           ),
                         ],
-                      ),
-                    ],
-                  ),
-                ),
-
-                // 余额和价值
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      isBalanceHidden ? '****' : _formatBalance(balance),
-                      style: const TextStyle(
-                        color: _HomeScreenState.textPrimary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      isBalanceHidden ? '****' : _formatValue(value),
-                      style: TextStyle(
-                        color: _HomeScreenState.textSecondary.withOpacity(0.7),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                        onSelected: (String value) {
+                          if (value == 'remove' && asset['token'] != null) {
+                            _showRemoveTokenDialog(asset['token'] as Token);
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.more_vert,
+                            color:
+                                _HomeScreenState.textSecondary.withOpacity(0.7),
+                            size: 16,
+                          ),
+                        ),
                       ),
                     ),
                   ],
-                ),
-
-                // 自定义代币的移除按钮
-                if (asset['isNative'] == false) ...[
-                  const SizedBox(width: 8),
-                  PopupMenuButton<String>(
-                    color: cardBackground,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      side: BorderSide(color: _HomeScreenState.accentColor.withOpacity(0.2)),
-                    ),
-                    itemBuilder: (BuildContext context) => [
-                      PopupMenuItem<String>(
-                        value: 'remove',
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.delete_outline,
-                              color: Colors.red.withOpacity(0.8),
-                              size: 18,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Remove',
-                              style: TextStyle(
-                                color: Colors.red.withOpacity(0.8),
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                    onSelected: (String value) {
-                      if (value == 'remove' && asset['token'] != null) {
-                        _showRemoveTokenDialog(asset['token'] as Token);
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.more_vert,
-                        color: _HomeScreenState.textSecondary.withOpacity(0.7),
-                        size: 16,
-                      ),
-                    ),
-                  ),
                 ],
-              ],
+              ),
             ),
           ),
         ),
@@ -2055,7 +1833,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       decoration: BoxDecoration(
         color: cardBackground,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _HomeScreenState.accentColor.withOpacity(0.1)),
+        border:
+            Border.all(color: _HomeScreenState.accentColor.withOpacity(0.1)),
       ),
       child: _buildModernNFTGrid(),
     );
@@ -2130,7 +1909,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         crossAxisCount: 2,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
-        childAspectRatio: 0.8,
+        childAspectRatio: 0.75, // 稍微调高一点，给信息部分更多空间
       ),
       itemCount: nfts.length,
       itemBuilder: (context, index) {
@@ -2149,7 +1928,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         decoration: BoxDecoration(
           color: cardBackground,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: _HomeScreenState.accentColor.withOpacity(0.2)),
+          border:
+              Border.all(color: _HomeScreenState.accentColor.withOpacity(0.2)),
           boxShadow: [
             BoxShadow(
               color: _HomeScreenState.accentColor.withOpacity(0.1),
@@ -2184,44 +1964,50 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             Expanded(
               flex: 2,
               child: Padding(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      nft['name']!,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: _HomeScreenState.textPrimary,
+                    Flexible(
+                      child: Text(
+                        nft['name']!,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: _HomeScreenState.textPrimary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      nft['collection']!,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: _HomeScreenState.textSecondary.withOpacity(0.7),
+                    const SizedBox(height: 2),
+                    Flexible(
+                      child: Text(
+                        nft['collection']!,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color:
+                              _HomeScreenState.textSecondary.withOpacity(0.7),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
                     const Spacer(),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
+                        horizontal: 6,
+                        vertical: 3,
                       ),
                       decoration: BoxDecoration(
                         color: _HomeScreenState.accentColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
                         nft['price']!,
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 10,
                           fontWeight: FontWeight.w600,
                           color: _HomeScreenState.accentColor,
                         ),

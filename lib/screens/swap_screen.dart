@@ -20,7 +20,6 @@ class _SwapScreenState extends State<SwapScreen> {
   String _fromToken = 'ETH';
   String _toToken = 'USDC';
   double _exchangeRate = 2500.0; // Mock exchange rate
-  final bool _isLoading = false;
   bool _isSwapping = false;
 
   @override
