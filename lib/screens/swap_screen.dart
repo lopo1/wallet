@@ -67,9 +67,8 @@ class _SwapScreenState extends State<SwapScreen> {
     final fromAmount = double.tryParse(_fromAmountController.text) ?? 0.0;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final newText = fromAmount > 0
-          ? (fromAmount * _exchangeRate).toStringAsFixed(3)
-          : '';
+      final newText =
+          fromAmount > 0 ? (fromAmount * _exchangeRate).toStringAsFixed(3) : '';
       if (_toAmountController.text == newText) return;
       setState(() {
         _toAmountController.value = TextEditingValue(
@@ -186,89 +185,73 @@ class _SwapScreenState extends State<SwapScreen> {
             icon: const Icon(Icons.settings),
             onPressed: _showSettings,
           ),
-          ],
+        ],
       ),
       body: Consumer<WalletProvider>(
         builder: (context, walletProvider, child) {
+          // 同步接收地址：如果当前选中的地址属于接收代币的网络，则使用该地址
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_toToken != null &&
+                walletProvider.selectedAddress != null &&
+                walletProvider.currentNetwork?.id == _toToken!.networkId &&
+                _recipientAddress != walletProvider.selectedAddress) {
+              setState(() {
+                _recipientAddress = walletProvider.selectedAddress;
+              });
+            }
+          });
+
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // From Token Section
                 // 使用 Stack 实现交换图标跨越两输入框边界，并在两卡片之间加入2像素间隙
-                Builder(builder: (context) {
-                  const double tokenCardHeight = 220; // 统一两卡片高度（增大以避免溢出）
-                  const double swapIconDiameter = 40; // 交换图标大小
-                  const double gapHeight = 6; // 两卡片之间间隙
-                  return Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Column(
-                        children: [
-                          Container(
-                            height: tokenCardHeight,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1A1A2E),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.white12, width: 1),
-                            ),
-                            child: _buildTokenSection(
-                              title: '发送',
-                              network: _fromNetwork,
-                              token: _fromToken,
-                              controller: _fromAmountController,
-                              isFrom: true,
-                              walletProvider: walletProvider,
-                            ),
-                          ),
-                          Container(
-                            height: gapHeight,
-                            color: Colors.black, // 与背景一致形成清晰间隙
-                          ),
-                          Container(
-                            height: tokenCardHeight,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1A1A2E),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.white12, width: 1),
-                            ),
-                            child: _buildTokenSection(
-                              title: '接收',
-                              network: _toNetwork,
-                              token: _toToken,
-                              controller: _toAmountController,
-                              isFrom: false,
-                              walletProvider: walletProvider,
-                            ),
-                          ),
-                        ],
+                Column(
+                  children: [
+                    // From Token Section
+                    Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1A1A2E),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.white12, width: 1),
                       ),
-                      Positioned(
-                        top: tokenCardHeight + gapHeight / 2 - swapIconDiameter / 2,
-                        left: 0,
-                        right: 0,
-                        child: Center(
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              // 圆形背景环，确保2px间隙围绕按钮
-                              Container(
-                                width: swapIconDiameter + 4,
-                                height: swapIconDiameter + 4,
-                                decoration: const BoxDecoration(
-                                  color: Colors.black,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              _buildSwapButton(),
-                            ],
-                          ),
-                        ),
+                      child: _buildTokenSection(
+                        title: '发送',
+                        network: _fromNetwork,
+                        token: _fromToken,
+                        controller: _fromAmountController,
+                        isFrom: true,
+                        walletProvider: walletProvider,
                       ),
-                    ],
-                  );
-                }),
+                    ),
+
+                    // Swap Button with spacing
+                    Container(
+                      height: 52,
+                      alignment: Alignment.center,
+                      child: _buildSwapButton(),
+                    ),
+
+                    // To Token Section
+                    Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1A1A2E),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.white12, width: 1),
+                      ),
+                      child: _buildTokenSection(
+                        title: '接收',
+                        network: _toNetwork,
+                        token: _toToken,
+                        controller: _toAmountController,
+                        isFrom: false,
+                        walletProvider: walletProvider,
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 16),
 
                 // Execute Swap Button
@@ -352,7 +335,8 @@ class _SwapScreenState extends State<SwapScreen> {
                       : Future.value(0.0),
                   builder: (context, snapshot) {
                     final balance = snapshot.data ?? 0.0;
-                    final balanceText = AmountUtils.formatTruncated(balance, decimals: 6);
+                    final balanceText =
+                        AmountUtils.formatTruncated(balance, decimals: 6);
                     return Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -377,22 +361,30 @@ class _SwapScreenState extends State<SwapScreen> {
                               if (selected != null) {
                                 try {
                                   if (selected.isNative) {
-                                    balance = await walletProvider.getNetworkBalance(selected.networkId);
+                                    balance = await walletProvider
+                                        .getNetworkBalance(selected.networkId);
                                   }
                                 } catch (_) {
                                   balance = 0.0;
                                 }
                               }
-                              controller.text = AmountUtils.formatTruncated(balance, decimals: 6);
+                              controller.text = AmountUtils.formatTruncated(
+                                  balance,
+                                  decimals: 6);
                               _onFromAmountChanged();
                             },
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: Theme.of(context).primaryColor.withOpacity(0.1),
+                                color: Theme.of(context)
+                                    .primaryColor
+                                    .withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
-                                  color: Theme.of(context).primaryColor.withOpacity(0.3),
+                                  color: Theme.of(context)
+                                      .primaryColor
+                                      .withOpacity(0.3),
                                 ),
                               ),
                               child: Text(
@@ -425,6 +417,21 @@ class _SwapScreenState extends State<SwapScreen> {
                   _fromToken = selectedToken;
                 } else {
                   _toToken = selectedToken;
+                  // 当选择接收代币时，更新接收地址为对应网络的地址
+                  if (selectedToken != null &&
+                      walletProvider.currentWallet != null) {
+                    // 如果选择的代币网络与当前网络相同，使用当前选中的地址
+                    if (selectedToken.networkId ==
+                            walletProvider.currentNetwork?.id &&
+                        walletProvider.selectedAddress != null) {
+                      _recipientAddress = walletProvider.selectedAddress;
+                    } else {
+                      // 否则使用该网络的第一个地址
+                      _recipientAddress = walletProvider.getAddressForNetwork(
+                          walletProvider.currentWallet!.id,
+                          selectedToken.networkId);
+                    }
+                  }
                 }
               });
               _saveLastSelection();
@@ -435,8 +442,10 @@ class _SwapScreenState extends State<SwapScreen> {
                 _onFromAmountChanged();
               } else {
                 final toValue = double.tryParse(amount) ?? 0.0;
-                final fromValue = _exchangeRate == 0 ? 0.0 : toValue / _exchangeRate;
-                _fromAmountController.text = AmountUtils.formatTruncated(fromValue, decimals: 6);
+                final fromValue =
+                    _exchangeRate == 0 ? 0.0 : toValue / _exchangeRate;
+                _fromAmountController.text =
+                    AmountUtils.formatTruncated(fromValue, decimals: 6);
                 setState(() {});
               }
             },
@@ -448,13 +457,15 @@ class _SwapScreenState extends State<SwapScreen> {
                     if (selected != null) {
                       try {
                         if (selected.isNative) {
-                          balance = await walletProvider.getNetworkBalance(selected.networkId);
+                          balance = await walletProvider
+                              .getNetworkBalance(selected.networkId);
                         }
                       } catch (_) {
                         balance = 0.0;
                       }
                     }
-                    controller.text = AmountUtils.formatTruncated(balance, decimals: 6);
+                    controller.text =
+                        AmountUtils.formatTruncated(balance, decimals: 6);
                     _onFromAmountChanged();
                   }
                 : null,
@@ -476,7 +487,8 @@ class _SwapScreenState extends State<SwapScreen> {
               borderRadius: 12,
               borderWidth: 1,
               // 减少容器内边距，让输入框内容更贴近边缘
-              containerPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 12),
+              containerPadding:
+                  EdgeInsets.symmetric(horizontal: 6, vertical: 12),
               amountTextStyle: TextStyle(
                 color: Colors.white,
                 fontSize: 20,
@@ -508,22 +520,25 @@ class _SwapScreenState extends State<SwapScreen> {
               excludeTokens: isFrom
                   ? (_toToken != null ? [_toToken!.id] : [])
                   : (_fromToken != null ? [_fromToken!.id] : []),
-              customTokens: walletProvider.getAllAssets().map((asset) => Token(
-                    id: asset['id'] as String? ?? asset['symbol'] as String,
-                    symbol: asset['symbol'] as String,
-                    name: asset['name'] as String,
-                    contractAddress:
-                        (asset['contractAddress'] as String?) ??
-                        (asset['address'] as String?) ??
-                        '',
-                    decimals: asset['decimals'] as int? ?? 18,
-                    networkId: (asset['networkId'] as String?) ??
-                        (asset['id'] as String?) ??
-                        'ethereum',
-                    priceUsd: asset['price'] as double? ?? 0.0,
-                    iconUrl: asset['logoUrl'] as String?,
-                    isNative: asset['isNative'] as bool? ?? false,
-                  )).toList(),
+              customTokens: walletProvider
+                  .getAllAssets()
+                  .map((asset) => Token(
+                        id: asset['id'] as String? ?? asset['symbol'] as String,
+                        symbol: asset['symbol'] as String,
+                        name: asset['name'] as String,
+                        contractAddress:
+                            (asset['contractAddress'] as String?) ??
+                                (asset['address'] as String?) ??
+                                '',
+                        decimals: asset['decimals'] as int? ?? 18,
+                        networkId: (asset['networkId'] as String?) ??
+                            (asset['id'] as String?) ??
+                            'ethereum',
+                        priceUsd: asset['price'] as double? ?? 0.0,
+                        iconUrl: asset['logoUrl'] as String?,
+                        isNative: asset['isNative'] as bool? ?? false,
+                      ))
+                  .toList(),
             ),
           ),
           // 接收地址显示（仅在接收框显示）
@@ -565,7 +580,8 @@ class _SwapScreenState extends State<SwapScreen> {
                         color: Theme.of(context).primaryColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: Theme.of(context).primaryColor.withOpacity(0.3),
+                          color:
+                              Theme.of(context).primaryColor.withOpacity(0.3),
                         ),
                       ),
                       child: Icon(
@@ -800,13 +816,15 @@ class _SwapScreenState extends State<SwapScreen> {
       child: ElevatedButton(
         onPressed: !_isSwapping && hasAmount ? _executeSwap : null,
         style: ElevatedButton.styleFrom(
-          backgroundColor: hasAmount ? const Color(0xFF6366F1) : const Color.fromARGB(255, 52, 51, 51),
+          backgroundColor: hasAmount
+              ? const Color(0xFF6366F1)
+              : const Color.fromARGB(255, 52, 51, 51),
           foregroundColor: hasAmount ? Colors.white : const Color(0xFF666666),
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
-            side: hasAmount 
-                ? BorderSide.none 
+            side: hasAmount
+                ? BorderSide.none
                 : const BorderSide(color: Color(0xFF3A3A3A), width: 1),
           ),
           elevation: 0,
@@ -837,7 +855,7 @@ class _SwapScreenState extends State<SwapScreen> {
 
   void _showTokenSelector(bool isFrom) async {
     final walletProvider = Provider.of<WalletProvider>(context, listen: false);
-    
+
     // 配置Token选择器
     final config = TokenSelectorConfig(
       mode: TokenSelectorMode.fullscreen,
@@ -848,18 +866,27 @@ class _SwapScreenState extends State<SwapScreen> {
       showUsdValue: true,
       onlyShowWithBalance: false,
       preselectedToken: isFrom ? _fromToken : _toToken,
-      excludeTokens: isFrom ? (_toToken != null ? [_toToken!.id] : []) : (_fromToken != null ? [_fromToken!.id] : []),
-      customTokens: walletProvider.getAllAssets().map((asset) => Token(
-        id: asset['id'] as String? ?? asset['symbol'] as String,
-        symbol: asset['symbol'] as String,
-        name: asset['name'] as String,
-        contractAddress: (asset['contractAddress'] as String?) ?? (asset['address'] as String?) ?? '',
-        decimals: asset['decimals'] as int? ?? 18,
-        networkId: (asset['networkId'] as String?) ?? (asset['id'] as String?) ?? 'ethereum',
-        priceUsd: asset['price'] as double? ?? 0.0,
-        iconUrl: asset['logoUrl'] as String?,
-        isNative: asset['isNative'] as bool? ?? false,
-      )).toList(),
+      excludeTokens: isFrom
+          ? (_toToken != null ? [_toToken!.id] : [])
+          : (_fromToken != null ? [_fromToken!.id] : []),
+      customTokens: walletProvider
+          .getAllAssets()
+          .map((asset) => Token(
+                id: asset['id'] as String? ?? asset['symbol'] as String,
+                symbol: asset['symbol'] as String,
+                name: asset['name'] as String,
+                contractAddress: (asset['contractAddress'] as String?) ??
+                    (asset['address'] as String?) ??
+                    '',
+                decimals: asset['decimals'] as int? ?? 18,
+                networkId: (asset['networkId'] as String?) ??
+                    (asset['id'] as String?) ??
+                    'ethereum',
+                priceUsd: asset['price'] as double? ?? 0.0,
+                iconUrl: asset['logoUrl'] as String?,
+                isNative: asset['isNative'] as bool? ?? false,
+              ))
+          .toList(),
     );
 
     final result = await UniversalTokenSelector.show(
@@ -874,15 +901,17 @@ class _SwapScreenState extends State<SwapScreen> {
           _fromToken = selectedToken;
           // 如果网络不同，更新网络
           if (_fromNetwork?.id != selectedToken.networkId) {
-            _fromNetwork = walletProvider.supportedNetworks
-                .firstWhere((n) => n.id == selectedToken.networkId, orElse: () => _fromNetwork!);
+            _fromNetwork = walletProvider.supportedNetworks.firstWhere(
+                (n) => n.id == selectedToken.networkId,
+                orElse: () => _fromNetwork!);
           }
         } else {
           _toToken = selectedToken;
           // 如果网络不同，更新网络
           if (_toNetwork?.id != selectedToken.networkId) {
-            _toNetwork = walletProvider.supportedNetworks
-                .firstWhere((n) => n.id == selectedToken.networkId, orElse: () => _toNetwork!);
+            _toNetwork = walletProvider.supportedNetworks.firstWhere(
+                (n) => n.id == selectedToken.networkId,
+                orElse: () => _toNetwork!);
           }
         }
       });
@@ -930,7 +959,8 @@ class _SwapScreenState extends State<SwapScreen> {
     );
   }
 
-  Future<void> _initializeDefaultSelection(WalletProvider walletProvider) async {
+  Future<void> _initializeDefaultSelection(
+      WalletProvider walletProvider) async {
     try {
       final data = await _storageService.getData('swap_last_selection');
       if (data is Map && data['from'] != null && data['to'] != null) {
@@ -950,6 +980,18 @@ class _SwapScreenState extends State<SwapScreen> {
               (n) => n.id == toToken.networkId,
               orElse: () => walletProvider.supportedNetworks.first,
             );
+            // 更新接收地址为接收代币对应的网络地址
+            if (walletProvider.currentWallet != null) {
+              // 如果接收代币网络与当前网络相同，使用当前选中的地址
+              if (toToken.networkId == walletProvider.currentNetwork?.id &&
+                  walletProvider.selectedAddress != null) {
+                _recipientAddress = walletProvider.selectedAddress;
+              } else {
+                // 否则使用该网络的第一个地址
+                _recipientAddress = walletProvider.getAddressForNetwork(
+                    walletProvider.currentWallet!.id, toToken.networkId);
+              }
+            }
           } catch (_) {}
         });
       } else {
@@ -966,6 +1008,18 @@ class _SwapScreenState extends State<SwapScreen> {
               (n) => n.id == 'solana',
               orElse: () => walletProvider.supportedNetworks.first,
             );
+            // 更新接收地址为默认接收代币对应的网络地址
+            if (walletProvider.currentWallet != null) {
+              // 如果默认接收代币网络与当前网络相同，使用当前选中的地址
+              if ('solana' == walletProvider.currentNetwork?.id &&
+                  walletProvider.selectedAddress != null) {
+                _recipientAddress = walletProvider.selectedAddress;
+              } else {
+                // 否则使用该网络的第一个地址
+                _recipientAddress = walletProvider.getAddressForNetwork(
+                    walletProvider.currentWallet!.id, 'solana');
+              }
+            }
           } catch (_) {}
         });
       }
@@ -974,6 +1028,18 @@ class _SwapScreenState extends State<SwapScreen> {
       setState(() {
         _fromToken = TokenPresets.sol;
         _toToken = TokenPresets.usdtSol;
+        // 更新接收地址为默认接收代币对应的网络地址
+        if (walletProvider.currentWallet != null) {
+          // 如果默认接收代币网络与当前网络相同，使用当前选中的地址
+          if ('solana' == walletProvider.currentNetwork?.id &&
+              walletProvider.selectedAddress != null) {
+            _recipientAddress = walletProvider.selectedAddress;
+          } else {
+            // 否则使用该网络的第一个地址
+            _recipientAddress = walletProvider.getAddressForNetwork(
+                walletProvider.currentWallet!.id, 'solana');
+          }
+        }
       });
     }
   }
@@ -992,20 +1058,21 @@ class _SwapScreenState extends State<SwapScreen> {
   // 显示地址选择器
   void _showAddressSelector(WalletProvider walletProvider) {
     final currentWallet = walletProvider.currentWallet;
-    final currentNetwork = walletProvider.currentNetwork;
-    
-    if (currentWallet == null || currentNetwork == null) {
+
+    if (currentWallet == null || _toToken == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先选择钱包和网络')),
+        const SnackBar(content: Text('请先选择钱包和接收代币')),
       );
       return;
     }
 
-    final addresses = currentWallet.addresses[currentNetwork.id] ?? [];
-    
+    // 使用接收代币的网络ID来获取地址列表
+    final targetNetworkId = _toToken!.networkId;
+    final addresses = currentWallet.addresses[targetNetworkId] ?? [];
+
     if (addresses.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('当前网络没有可用地址')),
+        SnackBar(content: Text('${_toToken!.networkId}网络没有可用地址')),
       );
       return;
     }
@@ -1042,28 +1109,32 @@ class _SwapScreenState extends State<SwapScreen> {
               ...addresses.asMap().entries.map((entry) {
                 final index = entry.key;
                 final address = entry.value;
-                final addressName = currentWallet.addressNames[address] ?? 
+                final addressName = currentWallet.addressNames[address] ??
                     '${currentWallet.name} #${index + 1}';
                 final isSelected = address == _recipientAddress;
-                
+
                 return Container(
                   margin: const EdgeInsets.only(bottom: 8),
                   child: ListTile(
                     leading: CircleAvatar(
-                      backgroundColor: isSelected 
-                          ? Theme.of(context).primaryColor 
+                      backgroundColor: isSelected
+                          ? Theme.of(context).primaryColor
                           : const Color(0xFF22223A),
                       child: Icon(
                         Icons.account_balance_wallet,
-                        color: isSelected ? Colors.white : const Color(0xFF999999),
+                        color:
+                            isSelected ? Colors.white : const Color(0xFF999999),
                         size: 20,
                       ),
                     ),
                     title: Text(
                       addressName,
                       style: TextStyle(
-                        color: isSelected ? Theme.of(context).primaryColor : Colors.white,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                        color: isSelected
+                            ? Theme.of(context).primaryColor
+                            : Colors.white,
+                        fontWeight:
+                            isSelected ? FontWeight.w600 : FontWeight.normal,
                       ),
                     ),
                     subtitle: Text(
@@ -1073,7 +1144,7 @@ class _SwapScreenState extends State<SwapScreen> {
                         fontSize: 12,
                       ),
                     ),
-                    trailing: isSelected 
+                    trailing: isSelected
                         ? Icon(
                             Icons.check_circle,
                             color: Theme.of(context).primaryColor,
