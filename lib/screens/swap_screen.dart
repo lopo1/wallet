@@ -8,6 +8,7 @@ import '../models/token_model.dart';
 import '../widgets/overlaid_token_icon.dart';
 import '../widgets/enhanced_token_input_field.dart';
 import '../widgets/universal_token_selector.dart';
+import '../widgets/notched_container.dart';
 import '../utils/amount_utils.dart';
 import '../services/storage_service.dart';
 
@@ -81,7 +82,11 @@ class _SwapScreenState extends State<SwapScreen> {
 
   bool get _hasInsufficientBalance {
     final amount = double.tryParse(_fromAmountController.text) ?? 0.0;
-    return amount > _availableBalance;
+    if (amount <= 0) return false;
+
+    // 对于原生代币，需要异步获取余额，这里先返回false
+    // 实际的余额检查会在UI层面通过FutureBuilder处理
+    return false;
   }
 
   bool get _hasValidAmount {
@@ -105,8 +110,15 @@ class _SwapScreenState extends State<SwapScreen> {
       _fromAmountController.clear();
       _toAmountController.clear();
 
-      // Update exchange rate (inverse)
-      _exchangeRate = 1 / _exchangeRate;
+      // Update exchange rate (inverse) - avoid division by zero
+      if (_exchangeRate != 0) {
+        _exchangeRate = 1 / _exchangeRate;
+      }
+
+      // 更新接收地址为当前钱包地址（基于新的目标网络）
+      final walletProvider =
+          Provider.of<WalletProvider>(context, listen: false);
+      _recipientAddress = walletProvider.getCurrentNetworkAddress();
     });
     _saveLastSelection();
   }
@@ -202,52 +214,60 @@ class _SwapScreenState extends State<SwapScreen> {
           });
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(4),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // From Token Section
-                // 使用 Stack 实现交换图标跨越两输入框边界，并在两卡片之间加入2像素间隙
-                Column(
+                // 使用Stack来精确控制发送框、接收框和交换按钮的位置
+                Stack(
+                  clipBehavior: Clip.none,
                   children: [
-                    // From Token Section
-                    Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1A1A2E),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.white12, width: 1),
-                      ),
-                      child: _buildTokenSection(
-                        title: '发送',
-                        network: _fromNetwork,
-                        token: _fromToken,
-                        controller: _fromAmountController,
-                        isFrom: true,
-                        walletProvider: walletProvider,
-                      ),
+                    Column(
+                      children: [
+                        // From Token Section (发送框)
+                        NotchedContainer(
+                          hasBottomNotch: true,
+                          backgroundColor: const Color(0xFF1A1A2E),
+                          border: Border.all(color: Colors.white12, width: 1),
+                          notchRadius: 22.0,
+                          child: _buildTokenSection(
+                            title: '发送',
+                            network: _fromNetwork,
+                            token: _fromToken,
+                            controller: _fromAmountController,
+                            isFrom: true,
+                            walletProvider: walletProvider,
+                          ),
+                        ),
+
+                        // 2像素间隙
+                        const SizedBox(height: 4),
+
+                        // To Token Section (接收框)
+                        NotchedContainer(
+                          hasTopNotch: true,
+                          backgroundColor: const Color(0xFF1A1A2E),
+                          border: Border.all(color: Colors.white12, width: 1),
+                          notchRadius: 22.0,
+                          child: _buildTokenSection(
+                            title: '接收',
+                            network: _toNetwork,
+                            token: _toToken,
+                            controller: _toAmountController,
+                            isFrom: false,
+                            walletProvider: walletProvider,
+                          ),
+                        ),
+                      ],
                     ),
 
-                    // Swap Button with spacing
-                    Container(
-                      height: 52,
-                      alignment: Alignment.center,
-                      child: _buildSwapButton(),
-                    ),
-
-                    // To Token Section
-                    Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1A1A2E),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.white12, width: 1),
-                      ),
-                      child: _buildTokenSection(
-                        title: '接收',
-                        network: _toNetwork,
-                        token: _toToken,
-                        controller: _toAmountController,
-                        isFrom: false,
-                        walletProvider: walletProvider,
+                    // 交换按钮 - 使用绝对定位在发送框底部
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: 190, // 调整位置适应2像素间隙
+                      child: Center(
+                        child: _buildSwapButton(),
                       ),
                     ),
                   ],
@@ -307,7 +327,8 @@ class _SwapScreenState extends State<SwapScreen> {
     // 使用卡片容器包裹，并将“发送/接收”标签置于卡片内部顶部，与输入对齐
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
-      padding: const EdgeInsets.all(16),
+      // padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A2E),
         borderRadius: BorderRadius.circular(12),
@@ -600,25 +621,30 @@ class _SwapScreenState extends State<SwapScreen> {
   }
 
   Widget _buildSwapButton() {
-    return Center(
-      child: GestureDetector(
-        onTap: _swapTokens,
-        child: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: const Color(0xFF7C4DFF),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: const Color(0xFF1A1A1A),
-              width: 3,
+    return GestureDetector(
+      onTap: _swapTokens,
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: const Color(0xFF7C4DFF),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: Colors.black,
+            width: 2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF7C4DFF).withOpacity(0.3),
+              blurRadius: 8,
+              spreadRadius: 1,
             ),
-          ),
-          child: const Icon(
-            Icons.swap_vert,
-            color: Colors.white,
-            size: 20,
-          ),
+          ],
+        ),
+        child: const Icon(
+          Icons.swap_vert,
+          color: Colors.white,
+          size: 20,
         ),
       ),
     );
