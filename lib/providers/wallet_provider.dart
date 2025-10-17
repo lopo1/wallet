@@ -900,6 +900,35 @@ class WalletProvider extends ChangeNotifier {
     }
   }
 
+  /// 获取指定地址在指定网络的余额（不改变所选地址，不触发通知）
+  Future<double> getNetworkBalanceForAddress(
+    String networkId,
+    String address, {
+    String? rpcUrl,
+  }) async {
+    try {
+      return await _retryOperation(() async {
+        switch (networkId) {
+          case 'ethereum':
+            return await _getEthereumBalanceForAddress(networkId, address, rpcUrl: rpcUrl);
+          case 'polygon':
+            return await _getPolygonBalanceForAddress(networkId, address, rpcUrl: rpcUrl);
+          case 'bsc':
+            return await _getBscBalanceForAddress(networkId, address, rpcUrl: rpcUrl);
+          case 'bitcoin':
+            return await _getBitcoinBalanceForAddress(networkId, address, rpcUrl: rpcUrl);
+          case 'solana':
+            return await _getSolanaBalanceForAddress(networkId, address, rpcUrl: rpcUrl);
+          default:
+            return 0.0;
+        }
+      });
+    } catch (e) {
+      debugPrint('获取按地址余额失败: $e');
+      return 0.0;
+    }
+  }
+
   /// 获取以太坊余额
   Future<double> _getEthereumBalance(String networkId, {String? rpcUrl}) async {
     try {
@@ -942,6 +971,28 @@ class WalletProvider extends ChangeNotifier {
       return ethBalance;
     } catch (e) {
       debugPrint('获取以太坊余额失败: $e');
+      return 0.0;
+    }
+  }
+
+  Future<double> _getEthereumBalanceForAddress(String networkId, String addressHex, {String? rpcUrl}) async {
+    try {
+      final network = _currentNetwork?.id == networkId
+          ? _currentNetwork!
+          : _supportedNetworks.firstWhere((n) => n.id == networkId);
+      final effectiveRpcUrl = rpcUrl ?? network.rpcUrl;
+      final client = web3.Web3Client(effectiveRpcUrl, http.Client());
+
+      debugPrint('=== 以太坊余额查询(按地址) ===');
+      debugPrint('RPC URL: $effectiveRpcUrl');
+      debugPrint('钱包地址: $addressHex');
+      final address = web3.EthereumAddress.fromHex(addressHex);
+      final balance = await client.getBalance(address);
+      final ethBalance = balance.getValueInUnit(web3.EtherUnit.ether);
+      client.dispose();
+      return ethBalance;
+    } catch (e) {
+      debugPrint('获取以太坊余额(按地址)失败: $e');
       return 0.0;
     }
   }
@@ -992,6 +1043,28 @@ class WalletProvider extends ChangeNotifier {
     }
   }
 
+  Future<double> _getPolygonBalanceForAddress(String networkId, String addressHex, {String? rpcUrl}) async {
+    try {
+      final network = _currentNetwork?.id == networkId
+          ? _currentNetwork!
+          : _supportedNetworks.firstWhere((n) => n.id == networkId);
+      final effectiveRpcUrl = rpcUrl ?? network.rpcUrl;
+      final client = web3.Web3Client(effectiveRpcUrl, http.Client());
+
+      debugPrint('=== Polygon余额查询(按地址) ===');
+      debugPrint('RPC URL: $effectiveRpcUrl');
+      debugPrint('钱包地址: $addressHex');
+      final address = web3.EthereumAddress.fromHex(addressHex);
+      final balance = await client.getBalance(address);
+      final maticBalance = balance.getValueInUnit(web3.EtherUnit.ether);
+      client.dispose();
+      return maticBalance;
+    } catch (e) {
+      debugPrint('获取Polygon余额(按地址)失败: $e');
+      return 0.0;
+    }
+  }
+
   /// 获取BSC余额
   Future<double> _getBscBalance(String networkId, {String? rpcUrl}) async {
     try {
@@ -1034,6 +1107,28 @@ class WalletProvider extends ChangeNotifier {
       return bnbBalance;
     } catch (e) {
       debugPrint('获取BSC余额失败: $e');
+      return 0.0;
+    }
+  }
+
+  Future<double> _getBscBalanceForAddress(String networkId, String addressHex, {String? rpcUrl}) async {
+    try {
+      final network = _currentNetwork?.id == networkId
+          ? _currentNetwork!
+          : _supportedNetworks.firstWhere((n) => n.id == networkId);
+      final effectiveRpcUrl = rpcUrl ?? network.rpcUrl;
+      final client = web3.Web3Client(effectiveRpcUrl, http.Client());
+
+      debugPrint('=== BSC余额查询(按地址) ===');
+      debugPrint('RPC URL: $effectiveRpcUrl');
+      debugPrint('钱包地址: $addressHex');
+      final address = web3.EthereumAddress.fromHex(addressHex);
+      final balance = await client.getBalance(address);
+      final bnbBalance = balance.getValueInUnit(web3.EtherUnit.ether);
+      client.dispose();
+      return bnbBalance;
+    } catch (e) {
+      debugPrint('获取BSC余额(按地址)失败: $e');
       return 0.0;
     }
   }
@@ -1104,6 +1199,38 @@ class WalletProvider extends ChangeNotifier {
     }
   }
 
+  Future<double> _getBitcoinBalanceForAddress(String networkId, String address, {String? rpcUrl}) async {
+    try {
+      final network = _currentNetwork?.id == networkId
+          ? _currentNetwork!
+          : _supportedNetworks.firstWhere((n) => n.id == networkId);
+      final effectiveRpcUrl = rpcUrl ?? network.rpcUrl;
+      final apiUrl = '$effectiveRpcUrl/address/$address';
+
+      debugPrint('=== 比特币余额查询(按地址) ===');
+      debugPrint('API URL: $apiUrl');
+      debugPrint('钱包地址: $address');
+
+      final response = await http.get(
+        Uri.parse(apiUrl),
+        headers: {'Content-Type': 'application/json'},
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['chain_stats'] != null && data['chain_stats']['funded_txo_sum'] != null) {
+          final satoshi = data['chain_stats']['funded_txo_sum'] as int;
+          final spent = data['chain_stats']['spent_txo_sum'] as int? ?? 0;
+          final btcBalance = (satoshi - spent) / 100000000.0;
+          return btcBalance;
+        }
+      }
+      return 0.0;
+    } catch (e) {
+      debugPrint('获取比特币余额(按地址)失败: $e');
+      return 0.0;
+    }
+  }
+
   /// 获取Solana余额
   Future<double> _getSolanaBalance(String networkId, {String? rpcUrl}) async {
     try {
@@ -1141,6 +1268,21 @@ class WalletProvider extends ChangeNotifier {
       return balance;
     } catch (e) {
       debugPrint('获取Solana余额失败: $e');
+      return 0.0;
+    }
+  }
+
+  Future<double> _getSolanaBalanceForAddress(String networkId, String address, {String? rpcUrl}) async {
+    try {
+      final network = _currentNetwork?.id == networkId
+          ? _currentNetwork!
+          : _supportedNetworks.firstWhere((n) => n.id == networkId);
+      final effectiveRpcUrl = rpcUrl ?? network.rpcUrl;
+      _solanaWalletService ??= SolanaWalletService(effectiveRpcUrl);
+      final balance = await _solanaWalletService!.getBalance(address);
+      return balance;
+    } catch (e) {
+      debugPrint('获取Solana余额(按地址)失败: $e');
       return 0.0;
     }
   }

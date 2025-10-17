@@ -626,6 +626,33 @@ class _SendDetailScreenState extends State<SendDetailScreen>
     }
   }
 
+  double _getTokenPrice(String networkId) {
+    switch (networkId) {
+      case 'ethereum':
+        return 2000.0;
+      case 'bitcoin':
+        return 45000.0;
+      case 'solana':
+        return 100.0;
+      case 'polygon':
+        return 0.8;
+      case 'bsc':
+        return 300.0;
+      case 'avalanche':
+        return 25.0;
+      case 'arbitrum':
+        return 2000.0;
+      case 'optimism':
+        return 2000.0;
+      case 'base':
+        return 2000.0;
+      case 'tron':
+        return 0.1;
+      default:
+        return 1.0;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -789,6 +816,27 @@ class _SendDetailScreenState extends State<SendDetailScreen>
                         });
                         _loadGasFee();
                       },
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: Builder(
+                          builder: (context) {
+                            final amount = double.tryParse(_amountController.text) ?? 0.0;
+                            final networkId = network?.id ?? '';
+                            final priceUsd = _getTokenPrice(networkId);
+                            final usdValue = amount * priceUsd;
+                            return Text(
+                              '≈\$${usdValue.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                color: Colors.white54,
+                                fontSize: 12,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(

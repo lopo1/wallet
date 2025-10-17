@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/wallet_provider.dart';
 import '../models/network.dart';
+import '../models/token_model.dart';
 import '../services/address_count_service.dart';
+import '../utils/amount_utils.dart';
+import '../widgets/universal_token_selector.dart';
+import '../widgets/enhanced_token_input_field.dart';
 
 class SendScreen extends StatefulWidget {
   const SendScreen({super.key});
@@ -499,7 +503,7 @@ class _SendScreenState extends State<SendScreen> {
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
-                                  _getChainBadgeText(network.id),
+                                  _getChainBadgeText(addresses.length),
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 9,
@@ -538,7 +542,7 @@ class _SendScreenState extends State<SendScreen> {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Text(
-                              balance.toStringAsFixed(2),
+                              AmountUtils.formatTruncated(balance, decimals: 6),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 15,
@@ -645,7 +649,7 @@ class _SendScreenState extends State<SendScreen> {
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
                                 Text(
-                                  addressBalance.toStringAsFixed(2),
+                                  AmountUtils.formatTruncated(addressBalance, decimals: 6),
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 14,
@@ -675,32 +679,8 @@ class _SendScreenState extends State<SendScreen> {
     );
   }
 
-  String _getChainBadgeText(String networkId) {
-    // 返回链标识文本
-    switch (networkId) {
-      case 'ethereum':
-        return '+1';
-      case 'bitcoin':
-        return '+2';
-      case 'solana':
-        return '+1';
-      case 'polygon':
-        return '+2';
-      case 'bsc':
-        return '+2';
-      case 'avalanche':
-        return '+1';
-      case 'arbitrum':
-        return '+1';
-      case 'optimism':
-        return '+1';
-      case 'base':
-        return '+1';
-      case 'tron':
-        return '+1';
-      default:
-        return '+1';
-    }
+  String _getChainBadgeText(int addressCount) {
+    return '+$addressCount';
   }
 
   String _getChainIcon(String networkId) {
