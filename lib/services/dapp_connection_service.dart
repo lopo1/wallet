@@ -437,6 +437,32 @@ class DAppConnectionService extends ChangeNotifier {
       ..sort((a, b) => b.lastUsedAt.compareTo(a.lastUsedAt));
   }
 
+  /// 撤销DApp权限
+  Future<void> revokePermissions(String origin, Map<String, dynamic> permissions) async {
+    try {
+      final connection = _connections[origin];
+      if (connection == null) {
+        debugPrint('Connection not found for origin: $origin');
+        return;
+      }
+
+      // 解析权限参数
+      if (permissions.containsKey('eth_accounts')) {
+        // 撤销账户访问权限
+        await removePermission(origin, DAppPermission.readAccounts);
+        debugPrint('Revoked eth_accounts permission for $origin');
+      }
+
+      // 可以根据需要添加更多权限类型的处理
+      // 例如：sendTransactions, signMessages等
+
+      debugPrint('Permissions revoked for DApp: $origin');
+    } catch (e) {
+      debugPrint('Failed to revoke permissions for $origin: $e');
+      rethrow;
+    }
+  }
+
   /// 导出连接数据（用于备份）
   Map<String, dynamic> exportData() {
     return {

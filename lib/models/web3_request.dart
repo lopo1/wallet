@@ -12,7 +12,8 @@ enum Web3Method {
   ethSignTypedDataV4('eth_signTypedData_v4'),
   walletSwitchEthereumChain('wallet_switchEthereumChain'),
   walletAddEthereumChain('wallet_addEthereumChain'),
-  walletWatchAsset('wallet_watchAsset');
+  walletWatchAsset('wallet_watchAsset'),
+  walletRevokePermissions('wallet_revokePermissions');
 
   const Web3Method(this.methodName);
 
@@ -53,6 +54,7 @@ enum Web3Method {
       case Web3Method.walletSwitchEthereumChain:
       case Web3Method.walletAddEthereumChain:
       case Web3Method.walletWatchAsset:
+      case Web3Method.walletRevokePermissions:
         return true;
       default:
         return false;
