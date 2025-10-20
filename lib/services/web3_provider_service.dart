@@ -28,6 +28,17 @@ class Web3ProviderService {
 
   WebViewController? _webViewController;
   String? _currentOrigin;
+  
+  // 添加缓存机制
+  static const String _fixedWalletUUID = 'harbor-flutter-wallet-builtin-2024';
+  String? _cachedProviderJS;
+  String? _lastCachedChainId;
+  String? _lastCachedAddress;
+  
+  // 预加载的钱包信息缓存
+  String? _preloadedNetworkId;
+  String? _preloadedAddress;
+  String? _preloadedChainIdHex;
 
   Web3ProviderService({
     required WalletProvider walletProvider,
@@ -39,6 +50,28 @@ class Web3ProviderService {
   void setWebViewController(WebViewController? controller, String origin) {
     _webViewController = controller;
     _currentOrigin = origin;
+    
+    // 预加载钱包信息，避免连接时的异步获取延迟
+    _preloadWalletInfo();
+  }
+  
+  /// 预加载钱包信息
+  void _preloadWalletInfo() {
+    try {
+      final currentNetwork = _walletProvider.currentNetwork;
+      final currentAddress = _walletProvider.getCurrentNetworkAddress();
+      
+      if (currentNetwork != null && currentAddress != null) {
+        _preloadedNetworkId = currentNetwork.id;
+        _preloadedAddress = currentAddress;
+        _preloadedChainIdHex = '0x${currentNetwork.chainId.toRadixString(16)}';
+        debugPrint('预加载钱包信息成功: 网络=${currentNetwork.name}, 地址=$currentAddress');
+      } else {
+        debugPrint('预加载钱包信息失败: 网络或地址为空');
+      }
+    } catch (e) {
+      debugPrint('预加载钱包信息异常: $e');
+    }
   }
 
   /// 注入Web3 Provider到WebView
@@ -66,8 +99,19 @@ class Web3ProviderService {
           ? connection.connectedAddresses.first
           : '';
 
-      final providerJS = _buildWeb3ProviderJS(chainIdHex, selectedAddress);
-      await _webViewController!.runJavaScript(providerJS);
+      // 检查是否需要重新生成Provider JS（缓存优化）
+      if (_cachedProviderJS == null || 
+          _lastCachedChainId != chainIdHex || 
+          _lastCachedAddress != selectedAddress) {
+        debugPrint('Generating new Provider JS (cache miss)');
+        _cachedProviderJS = _buildWeb3ProviderJS(chainIdHex, selectedAddress);
+        _lastCachedChainId = chainIdHex;
+        _lastCachedAddress = selectedAddress;
+      } else {
+        debugPrint('Using cached Provider JS (cache hit)');
+      }
+
+      await _webViewController!.runJavaScript(_cachedProviderJS!);
 
       debugPrint('Web3 Provider injected successfully for $_currentOrigin');
     } catch (e) {
@@ -101,40 +145,128 @@ class Web3ProviderService {
 
       debugPrint('Handling Web3 request: ${request.method.methodName}');
 
-      // 检查连接状态
-      if (!_connectionService.isConnected(_currentOrigin!)) {
-        throw Exception('DApp not connected');
-      }
-
       // 处理不同的Web3方法
       switch (web3Method) {
         case Web3Method.ethRequestAccounts:
+          // eth_requestAccounts 可以在未连接状态下执行，用于建立连接
           return await _handleRequestAccounts(request);
         case Web3Method.ethAccounts:
+          // 检查连接状态
+          if (!_connectionService.isConnected(_currentOrigin!)) {
+            throw Exception('DApp not connected');
+          }
           return await _handleAccounts(request);
         case Web3Method.ethChainId:
+          // 检查连接状态
+          if (!_connectionService.isConnected(_currentOrigin!)) {
+            throw Exception('DApp not connected');
+          }
           return await _handleChainId(request);
         case Web3Method.netVersion:
+          // 检查连接状态
+          if (!_connectionService.isConnected(_currentOrigin!)) {
+            throw Exception('DApp not connected');
+          }
           return await _handleNetVersion(request);
         case Web3Method.ethSendTransaction:
+          // 检查连接状态
+          if (!_connectionService.isConnected(_currentOrigin!)) {
+            throw Exception('DApp not connected');
+          }
           return await _handleSendTransaction(request);
         case Web3Method.ethSignTransaction:
+          // 检查连接状态
+          if (!_connectionService.isConnected(_currentOrigin!)) {
+            throw Exception('DApp not connected');
+          }
           return await _handleSignTransaction(request);
         case Web3Method.personalSign:
+          // 检查连接状态
+          if (!_connectionService.isConnected(_currentOrigin!)) {
+            throw Exception('DApp not connected');
+          }
           return await _handlePersonalSign(request);
         case Web3Method.ethSignTypedData:
         case Web3Method.ethSignTypedDataV4:
+          // 检查连接状态
+          if (!_connectionService.isConnected(_currentOrigin!)) {
+            throw Exception('DApp not connected');
+          }
           return await _handleSignTypedData(request);
         case Web3Method.walletSwitchEthereumChain:
+          // 检查连接状态
+          if (!_connectionService.isConnected(_currentOrigin!)) {
+            throw Exception('DApp not connected');
+          }
           return await _handleSwitchChain(request);
         case Web3Method.walletAddEthereumChain:
+          // 检查连接状态
+          if (!_connectionService.isConnected(_currentOrigin!)) {
+            throw Exception('DApp not connected');
+          }
           return await _handleAddChain(request);
         case Web3Method.walletWatchAsset:
+          // 检查连接状态
+          if (!_connectionService.isConnected(_currentOrigin!)) {
+            throw Exception('DApp not connected');
+          }
           return await _handleWatchAsset(request);
         case Web3Method.walletRevokePermissions:
+          // 检查连接状态
+          if (!_connectionService.isConnected(_currentOrigin!)) {
+            throw Exception('DApp not connected');
+          }
           return await _handleRevokePermissions(request);
+        case Web3Method.walletRequestPermissions:
+          // 检查连接状态
+          if (!_connectionService.isConnected(_currentOrigin!)) {
+            throw Exception('DApp not connected');
+          }
+          return await _handleRequestPermissions(request);
+        case Web3Method.walletGetCapabilities:
+          // 检查连接状态
+          if (!_connectionService.isConnected(_currentOrigin!)) {
+            throw Exception('DApp not connected');
+          }
+          return await _handleGetCapabilities(request);
+        case Web3Method.ethBlockNumber:
+          // 检查连接状态
+          if (!_connectionService.isConnected(_currentOrigin!)) {
+            throw Exception('DApp not connected');
+          }
+          return await _handleBlockNumber(request);
+        case Web3Method.ethGetBalance:
+          // 检查连接状态
+          if (!_connectionService.isConnected(_currentOrigin!)) {
+            throw Exception('DApp not connected');
+          }
+          return await _handleGetBalance(request);
+        case Web3Method.ethCall:
+          // 检查连接状态
+          if (!_connectionService.isConnected(_currentOrigin!)) {
+            throw Exception('DApp not connected');
+          }
+          return await _handleEthCall(request);
+        case Web3Method.ethEstimateGas:
+          // 检查连接状态
+          if (!_connectionService.isConnected(_currentOrigin!)) {
+            throw Exception('DApp not connected');
+          }
+          return await _handleEstimateGas(request);
+        case Web3Method.ethGasPrice:
+          // 检查连接状态
+          if (!_connectionService.isConnected(_currentOrigin!)) {
+            throw Exception('DApp not connected');
+          }
+          return await _handleGasPrice(request);
+        case Web3Method.ethGetTransactionCount:
+          // 检查连接状态
+          if (!_connectionService.isConnected(_currentOrigin!)) {
+            throw Exception('DApp not connected');
+          }
+          return await _handleGetTransactionCount(request);
         default:
-          throw Exception('Method not implemented: $method');
+          throw Exception('Unsupported method: ${request.method.methodName}');
       }
     } catch (e) {
       debugPrint('Error handling Web3 request: $e');
@@ -155,8 +287,19 @@ class Web3ProviderService {
         'code': code,
       };
 
+      // 详细记录响应内容
+      debugPrint('=== SENDING RESPONSE TO DAPP ===');
+      debugPrint('Request ID: $requestId');
+      debugPrint('Result: $result');
+      debugPrint('Result type: ${result.runtimeType}');
+      debugPrint('Error: $error');
+      debugPrint('Code: $code');
+      debugPrint('Full response: ${jsonEncode(response)}');
+      debugPrint('================================');
+
       final responseJS = '''
         if (window.handleFlutterWeb3Response) {
+          console.log('[FlutterWeb3] Sending response:', ${jsonEncode(response)});
           window.handleFlutterWeb3Response(${jsonEncode(response)});
         } else {
           console.error('[FlutterWeb3] handleFlutterWeb3Response not found');
@@ -172,15 +315,125 @@ class Web3ProviderService {
 
   /// 处理账户请求
   Future<List<String>> _handleRequestAccounts(Web3Request request) async {
-    final connection = _connectionService.getConnection(_currentOrigin!);
-    if (connection == null || connection.connectedAddresses.isEmpty) {
-      throw Exception('No accounts connected');
+    debugPrint('=== 处理 eth_requestAccounts 请求 ===');
+    debugPrint('Origin: $_currentOrigin');
+
+    // 优化：优先使用预加载的钱包信息，如果没有则实时获取
+    String? currentAddress = _preloadedAddress;
+    String? networkId = _preloadedNetworkId;
+    String? chainIdHex = _preloadedChainIdHex;
+    
+    // 如果预加载信息不可用，则实时获取
+    if (currentAddress == null || networkId == null || chainIdHex == null) {
+      debugPrint('预加载信息不可用，实时获取钱包信息');
+      final currentNetwork = _walletProvider.currentNetwork;
+      currentAddress = _walletProvider.getCurrentNetworkAddress();
+      
+      if (currentNetwork != null) {
+        networkId = currentNetwork.id;
+        chainIdHex = '0x${currentNetwork.chainId.toRadixString(16)}';
+      }
+    } else {
+      debugPrint('使用预加载的钱包信息');
+    }
+    
+    // 提前验证基础条件，快速失败
+    if (networkId == null) {
+      debugPrint('错误: 未选择网络');
+      throw Exception('未选择网络，请先在钱包中选择一个网络');
     }
 
-    // 更新最后使用时间
-    await _connectionService.updateLastUsed(_currentOrigin!);
+    if (currentAddress == null) {
+      debugPrint('错误: 未找到当前网络的地址');
+      throw Exception('未找到当前网络的地址，请检查钱包配置');
+    }
 
-    return connection.connectedAddresses;
+    // 优化：简化地址格式验证，只检查基本格式
+    if (!currentAddress.startsWith('0x') || currentAddress.length != 42) {
+      debugPrint('错误: 地址格式无效 - $currentAddress');
+      throw Exception('地址格式无效');
+    }
+
+    // 检查是否已连接
+    final connection = _connectionService.getConnection(_currentOrigin!);
+    debugPrint('现有连接状态: ${connection?.status}');
+
+    if (connection != null && _connectionService.isConnected(_currentOrigin!)) {
+      debugPrint('DApp已连接，直接返回地址');
+      return connection.connectedAddresses;
+    }
+
+    debugPrint('DApp未连接，需要建立新连接...');
+    debugPrint('当前网络: $networkId');
+    debugPrint('当前地址: $currentAddress');
+
+    // 创建连接请求
+    final connectionRequest = DAppConnectionRequest(
+      origin: _currentOrigin!,
+      name: Uri.parse(_currentOrigin!).host, // 使用域名作为名称
+      iconUrl: '$_currentOrigin/favicon.ico',
+      requestedAddresses: [currentAddress],
+      networkId: networkId,
+      requestedPermissions: [
+        DAppPermission.readAccounts,
+        DAppPermission.sendTransactions,
+        DAppPermission.signMessages,
+      ],
+    );
+
+    debugPrint('创建连接请求:');
+    debugPrint('  - Origin: ${connectionRequest.origin}');
+    debugPrint('  - Name: ${connectionRequest.name}');
+    debugPrint('  - Network: ${connectionRequest.networkId}');
+    debugPrint('  - Addresses: ${connectionRequest.requestedAddresses}');
+    debugPrint(
+        '  - Permissions: ${connectionRequest.requestedPermissions.map((p) => p.toString()).join(', ')}');
+
+    // 建立连接
+    try {
+      final success = await _connectionService.connectDApp(connectionRequest);
+      debugPrint('连接结果: $success');
+
+      if (!success) {
+        debugPrint('错误: DApp连接服务返回失败');
+        throw Exception('连接失败，请重试');
+      }
+
+      debugPrint('DApp自动连接成功: $_currentOrigin');
+    } catch (e) {
+      debugPrint('连接过程中发生错误: $e');
+      throw Exception('连接失败: $e');
+    }
+
+    // 获取连接信息并验证
+    final updatedConnection = _connectionService.getConnection(_currentOrigin!);
+    if (updatedConnection == null) {
+      debugPrint('错误: 连接后未找到连接信息');
+      throw Exception('连接验证失败');
+    }
+
+    if (updatedConnection.connectedAddresses.isEmpty) {
+      debugPrint('错误: 连接后没有关联的地址');
+      throw Exception('没有关联的账户地址');
+    }
+
+    debugPrint('连接验证成功:');
+    debugPrint('  - 状态: ${updatedConnection.status}');
+    debugPrint('  - 地址数量: ${updatedConnection.connectedAddresses.length}');
+    debugPrint('  - 地址列表: ${updatedConnection.connectedAddresses}');
+
+    // 更新最后使用时间
+    try {
+      await _connectionService.updateLastUsed(_currentOrigin!);
+      debugPrint('已更新最后使用时间');
+    } catch (e) {
+      debugPrint('更新最后使用时间失败: $e');
+      // 不抛出异常，这不是关键错误
+    }
+
+    debugPrint('=== eth_requestAccounts 处理完成 ===');
+    debugPrint('返回地址: ${updatedConnection.connectedAddresses}');
+    return updatedConnection.connectedAddresses;
   }
 
   /// 处理获取账户
@@ -240,10 +493,14 @@ class Web3ProviderService {
     // 检查地址权限 - 使用小写比较避免大小写问题
     final connection = _connectionService.getConnection(_currentOrigin!);
     final fromLower = from.toLowerCase();
-    final connectedAddressesLower = connection?.connectedAddresses.map((addr) => addr.toLowerCase()).toList() ?? [];
-    
+    final connectedAddressesLower = connection?.connectedAddresses
+            .map((addr) => addr.toLowerCase())
+            .toList() ??
+        [];
+
     if (connection == null || !connectedAddressesLower.contains(fromLower)) {
-      debugPrint('Address authorization failed. From: $from, Connected: ${connection?.connectedAddresses}');
+      debugPrint(
+          'Address authorization failed. From: $from, Connected: ${connection?.connectedAddresses}');
       throw Exception('Address not authorized');
     }
 
@@ -316,10 +573,14 @@ class Web3ProviderService {
     // 检查地址权限 - 使用小写比较避免大小写问题
     final connection = _connectionService.getConnection(_currentOrigin!);
     final addressLower = address.toLowerCase();
-    final connectedAddressesLower = connection?.connectedAddresses.map((addr) => addr.toLowerCase()).toList() ?? [];
-    
+    final connectedAddressesLower = connection?.connectedAddresses
+            .map((addr) => addr.toLowerCase())
+            .toList() ??
+        [];
+
     if (connection == null || !connectedAddressesLower.contains(addressLower)) {
-      debugPrint('Address authorization failed for signing. Address: $address, Connected: ${connection?.connectedAddresses}');
+      debugPrint(
+          'Address authorization failed for signing. Address: $address, Connected: ${connection?.connectedAddresses}');
       throw Exception('Address not authorized');
     }
 
@@ -337,9 +598,13 @@ class Web3ProviderService {
 
     // 确认该地址属于当前钱包并取得索引 - 使用小写比较
     final addresses = currentWallet.addresses[currentNetwork.id];
-    final addressesLower = addresses?.map((addr) => addr.toLowerCase()).toList();
-    if (addresses == null || addressesLower == null || !addressesLower.contains(addressLower)) {
-      debugPrint('Address not found in wallet. Address: $address, Wallet addresses: $addresses');
+    final addressesLower =
+        addresses?.map((addr) => addr.toLowerCase()).toList();
+    if (addresses == null ||
+        addressesLower == null ||
+        !addressesLower.contains(addressLower)) {
+      debugPrint(
+          'Address not found in wallet. Address: $address, Wallet addresses: $addresses');
       throw Exception('Address not found in current wallet for network');
     }
     final addressIndex = addressesLower.indexOf(addressLower);
@@ -367,7 +632,8 @@ class Web3ProviderService {
     final mnemonic = currentWallet.mnemonic;
     if (mnemonic.isEmpty) {
       // 私钥导入钱包的私钥需要密码回调支持，此处先抛出合理错误
-      throw Exception('Unable to access signing key. Please implement password callback for private-key wallets.');
+      throw Exception(
+          'Unable to access signing key. Please implement password callback for private-key wallets.');
     }
 
     try {
@@ -393,7 +659,8 @@ class Web3ProviderService {
       }
 
       final signatureHex = '0x${hex.HEX.encode(signature)}';
-      debugPrint('Message signed (personal_sign). Address: $address, Index: $addressIndex');
+      debugPrint(
+          'Message signed (personal_sign). Address: $address, Index: $addressIndex');
       return signatureHex;
     } catch (e) {
       debugPrint('Failed to sign personal message: $e');
@@ -413,10 +680,14 @@ class Web3ProviderService {
     // 检查地址权限 - 使用小写比较避免大小写问题
     final connection = _connectionService.getConnection(_currentOrigin!);
     final addressLower = address.toLowerCase();
-    final connectedAddressesLower = connection?.connectedAddresses.map((addr) => addr.toLowerCase()).toList() ?? [];
-    
+    final connectedAddressesLower = connection?.connectedAddresses
+            .map((addr) => addr.toLowerCase())
+            .toList() ??
+        [];
+
     if (connection == null || !connectedAddressesLower.contains(addressLower)) {
-      debugPrint('Address authorization failed for typed data signing. Address: $address, Connected: ${connection?.connectedAddresses}');
+      debugPrint(
+          'Address authorization failed for typed data signing. Address: $address, Connected: ${connection?.connectedAddresses}');
       throw Exception('Address not authorized');
     }
 
@@ -434,9 +705,13 @@ class Web3ProviderService {
 
     // 确认该地址属于当前钱包并取得索引 - 使用小写比较
     final addresses = currentWallet.addresses[currentNetwork.id];
-    final addressesLower = addresses?.map((addr) => addr.toLowerCase()).toList();
-    if (addresses == null || addressesLower == null || !addressesLower.contains(addressLower)) {
-      debugPrint('Address not found in wallet for typed data signing. Address: $address, Wallet addresses: $addresses');
+    final addressesLower =
+        addresses?.map((addr) => addr.toLowerCase()).toList();
+    if (addresses == null ||
+        addressesLower == null ||
+        !addressesLower.contains(addressLower)) {
+      debugPrint(
+          'Address not found in wallet for typed data signing. Address: $address, Wallet addresses: $addresses');
       throw Exception('Address not found in current wallet for network');
     }
     final addressIndex = addressesLower.indexOf(addressLower);
@@ -456,8 +731,12 @@ class Web3ProviderService {
     }
 
     // 校验基本结构
-    if (typedData['types'] == null || typedData['primaryType'] == null || typedData['domain'] == null || typedData['message'] == null) {
-      throw Exception('Typed data must include types, primaryType, domain and message');
+    if (typedData['types'] == null ||
+        typedData['primaryType'] == null ||
+        typedData['domain'] == null ||
+        typedData['message'] == null) {
+      throw Exception(
+          'Typed data must include types, primaryType, domain and message');
     }
 
     // 可选：校验 chainId 与当前网络一致
@@ -470,7 +749,8 @@ class Web3ProviderService {
       // 助记词 -> seed -> BIP32 -> 对应索引的以太坊私钥
       final mnemonic = currentWallet.mnemonic;
       if (mnemonic.isEmpty) {
-        throw Exception('Unable to access signing key. Please implement password callback for private-key wallets.');
+        throw Exception(
+            'Unable to access signing key. Please implement password callback for private-key wallets.');
       }
 
       final seed = bip39.mnemonicToSeed(mnemonic);
@@ -493,13 +773,16 @@ class Web3ProviderService {
       final r = _padUint8ListTo32(web3_crypto.intToBytes(msgSig.r));
       final s = _padUint8ListTo32(web3_crypto.intToBytes(msgSig.s));
       var vByte = msgSig.v;
-      if (vByte < 27) { vByte += 27; }
+      if (vByte < 27) {
+        vByte += 27;
+      }
       final v = Uint8List.fromList([vByte]);
 
       final signatureBytes = Uint8List.fromList([...r, ...s, ...v]);
       final signatureHex = '0x${hex.HEX.encode(signatureBytes)}';
 
-      debugPrint('Typed data signed (EIP-712). Address: $address, Index: $addressIndex');
+      debugPrint(
+          'Typed data signed (EIP-712). Address: $address, Index: $addressIndex');
       return signatureHex;
     } catch (e) {
       debugPrint('Failed to sign typed data: $e');
@@ -521,13 +804,16 @@ class Web3ProviderService {
 
     // 拼接并取 keccak256
     final prefix = Uint8List.fromList([0x19, 0x01]);
-    final data = Uint8List.fromList([...prefix, ...domainSeparator, ...messageHash]);
+    final data =
+        Uint8List.fromList([...prefix, ...domainSeparator, ...messageHash]);
     return web3_crypto.keccak256(data);
   }
 
   // 计算某结构体的 hashStruct(s): keccak256(typeHash || encodeData(fields))
-  Uint8List _hashStruct(String typeName, Map<String, dynamic> data, Map<String, dynamic> types) {
-    final typeHash = web3_crypto.keccak256(Uint8List.fromList(utf8.encode(_encodeType(typeName, types))));
+  Uint8List _hashStruct(
+      String typeName, Map<String, dynamic> data, Map<String, dynamic> types) {
+    final typeHash = web3_crypto.keccak256(
+        Uint8List.fromList(utf8.encode(_encodeType(typeName, types))));
     final encodedData = _encodeData(typeName, data, types);
     final bytes = Uint8List.fromList([...typeHash, ...encodedData]);
     return web3_crypto.keccak256(bytes);
@@ -550,7 +836,8 @@ class Web3ProviderService {
   }
 
   // 返回 typeName 的依赖类型集合（包含自身）
-  Set<String> _findTypeDependencies(String typeName, Map<String, dynamic> types) {
+  Set<String> _findTypeDependencies(
+      String typeName, Map<String, dynamic> types) {
     final result = <String>{typeName};
     final fields = List<Map<String, dynamic>>.from(types[typeName] as List);
 
@@ -575,7 +862,8 @@ class Web3ProviderService {
   }
 
   // 编码数据字段，返回拼接后的 bytes（不含最终 keccak256）
-  Uint8List _encodeData(String typeName, Map<String, dynamic> data, Map<String, dynamic> types) {
+  Uint8List _encodeData(
+      String typeName, Map<String, dynamic> data, Map<String, dynamic> types) {
     final fields = List<Map<String, dynamic>>.from(types[typeName] as List);
     final encoded = <Uint8List>[];
 
@@ -597,24 +885,29 @@ class Web3ProviderService {
         final itemEncoded = <Uint8List>[];
         for (final item in list) {
           if (types.containsKey(base)) {
-            final structHash = _hashStruct(base, Map<String, dynamic>.from(item as Map), types);
+            final structHash = _hashStruct(
+                base, Map<String, dynamic>.from(item as Map), types);
             itemEncoded.add(structHash);
           } else if (base == 'string') {
-            itemEncoded.add(web3_crypto.keccak256(Uint8List.fromList(utf8.encode(item as String))));
+            itemEncoded.add(web3_crypto
+                .keccak256(Uint8List.fromList(utf8.encode(item as String))));
           } else if (base == 'bytes') {
             itemEncoded.add(web3_crypto.keccak256(_parseBytes(item)));
           } else {
             itemEncoded.add(_encodePrimitive(base, item));
           }
         }
-        final concatenated = Uint8List.fromList(itemEncoded.expand((b) => b).toList());
+        final concatenated =
+            Uint8List.fromList(itemEncoded.expand((b) => b).toList());
         encoded.add(web3_crypto.keccak256(concatenated));
       } else if (types.containsKey(fType)) {
         // 嵌套结构：encodeData 然后取 keccak256
-        final structHash = _hashStruct(fType, Map<String, dynamic>.from(value as Map), types);
+        final structHash =
+            _hashStruct(fType, Map<String, dynamic>.from(value as Map), types);
         encoded.add(structHash);
       } else if (fType == 'string') {
-        encoded.add(web3_crypto.keccak256(Uint8List.fromList(utf8.encode(value as String))));
+        encoded.add(web3_crypto
+            .keccak256(Uint8List.fromList(utf8.encode(value as String))));
       } else if (fType == 'bytes') {
         encoded.add(web3_crypto.keccak256(_parseBytes(value)));
       } else {
@@ -633,7 +926,9 @@ class Web3ProviderService {
         final bytes = _parseAddress(value);
         return _padUint8ListTo32(bytes);
       case 'bool':
-        final v = (value is bool) ? (value ? 1 : 0) : (value.toString() == 'true' ? 1 : 0);
+        final v = (value is bool)
+            ? (value ? 1 : 0)
+            : (value.toString() == 'true' ? 1 : 0);
         return _padUint8ListTo32(web3_crypto.intToBytes(BigInt.from(v)));
       default:
         if (type.startsWith('uint') || type.startsWith('int')) {
@@ -734,19 +1029,53 @@ class Web3ProviderService {
         
         window.flutterWeb3Callbacks = window.flutterWeb3Callbacks || {};
         window.handleFlutterWeb3Response = function(response) {
+          console.log('[FlutterWeb3] Received response:', response);
           try {
             const data = typeof response === 'string' ? JSON.parse(response) : response;
             const id = data.id;
+            console.log('[FlutterWeb3] Looking for callback with id:', id);
             const cb = window.flutterWeb3Callbacks[id];
-            if (!cb) return;
+            if (!cb) {
+              console.warn('[FlutterWeb3] No callback found for id:', id);
+              return;
+            }
             delete window.flutterWeb3Callbacks[id];
-            if (data.error) { cb.reject(new Error(data.error)); } else { cb.resolve(data.result); }
-          } catch (e) { console.error('[FlutterWeb3] response error', e); }
+            console.log('[FlutterWeb3] Executing callback for id:', id);
+            console.log('[FlutterWeb3] Response data:', data);
+            
+            if (data.error) { 
+              console.log('[FlutterWeb3] Rejecting promise with error:', data.error);
+              cb.reject(new Error(data.error.message || data.error)); 
+            } else { 
+              console.log('[FlutterWeb3] Resolving promise with result:', data.result);
+              cb.resolve(data.result);
+              
+              // 如果是签名操作成功，触发相关事件
+              if (data.result && typeof data.result === 'string' && data.result.startsWith('0x')) {
+                console.log('[FlutterWeb3] Signature operation completed successfully:', data.result);
+                // 可以在这里触发自定义事件通知DApp签名完成
+                window.dispatchEvent(new CustomEvent('web3SignatureComplete', {
+                  detail: { signature: data.result, requestId: id }
+                }));
+              }
+              
+              // 如果是 eth_requestAccounts 成功，触发连接事件
+              if (data.result && Array.isArray(data.result) && data.result.length > 0) {
+                console.log('[FlutterWeb3] Triggering connection events for accounts:', data.result);
+                if (window.ethereum && window.ethereum._triggerConnect) {
+                  window.ethereum._triggerConnect(data.result);
+                }
+              }
+            }
+            console.log('[FlutterWeb3] Callback executed and cleaned up');
+          } catch (e) { 
+            console.error('[FlutterWeb3] response error', e); 
+          }
         };
         
         const provider = {
-          // 钱包标识符
-          isMetaMask: true,
+          // 钱包标识符 - 不要模拟MetaMask，使用自己的标识
+          isMetaMask: false,
           isFlutterWallet: true,
           isHarbor: true,
           isTrust: false,
@@ -754,7 +1083,10 @@ class Web3ProviderService {
           isRabby: false,
           
           // 连接状态
-          isConnected: () => true,
+          isConnected: () => {
+            console.log('[FlutterWeb3] isConnected() called');
+            return true;
+          },
           
           // 网络信息
           chainId: '${chainIdHex}',
@@ -763,21 +1095,47 @@ class Web3ProviderService {
           // 账户信息
           selectedAddress: '${selectedAddress}',
           
+          // 更新网络信息的方法
+          _updateNetworkInfo: function(newChainId, newNetworkVersion) {
+            this.chainId = newChainId;
+            this.networkVersion = newNetworkVersion;
+            console.log('[FlutterWeb3] Network info updated:', { chainId: newChainId, networkVersion: newNetworkVersion });
+          },
+          
           // 核心方法
           request: async function(req) {
+            console.log('[FlutterWeb3] Making request:', req);
             if (!req || !req.method) throw new Error('Invalid request');
+            
+            // 对于账户请求，直接返回当前选中的地址
+            if (req.method === 'eth_requestAccounts' || req.method === 'eth_accounts') {
+              console.log('[FlutterWeb3] Returning current address directly:', '${selectedAddress}');
+              return ['${selectedAddress}'];
+            }
+            
+            // 对于链ID请求，直接返回当前链ID
+            if (req.method === 'eth_chainId') {
+              console.log('[FlutterWeb3] Returning current chainId directly:', '${chainIdHex}');
+              return '${chainIdHex}';
+            }
+            
             const id = Date.now() + '_' + Math.random().toString(36).slice(2);
+            console.log('[FlutterWeb3] Generated request id:', id);
             return new Promise((resolve, reject) => {
               window.flutterWeb3Callbacks[id] = { resolve, reject };
               const msg = { id: id, method: req.method, params: req.params || [] };
+              console.log('[FlutterWeb3] Sending message:', msg);
               if (window.FlutterWeb3 && window.FlutterWeb3.postMessage) {
                 window.FlutterWeb3.postMessage(JSON.stringify(msg));
+                console.log('[FlutterWeb3] Message sent successfully');
               } else {
+                console.error('[FlutterWeb3] FlutterWeb3 channel not available');
                 delete window.flutterWeb3Callbacks[id];
                 reject(new Error('FlutterWeb3 channel not available'));
               }
               setTimeout(() => {
                 if (window.flutterWeb3Callbacks[id]) {
+                  console.warn('[FlutterWeb3] Request timeout for id:', id);
                   delete window.flutterWeb3Callbacks[id];
                   reject(new Error('Request timeout'));
                 }
@@ -786,9 +1144,24 @@ class Web3ProviderService {
           },
           
           // 兼容性方法
-          enable: function() { return this.request({ method: 'eth_requestAccounts' }); },
-          send: function(method, params) { return this.request(typeof method === 'string' ? { method, params } : method); },
-          sendAsync: function(payload, cb) { this.request(payload).then(r => cb(null, { result: r })).catch(e => cb(e, null)); },
+          enable: function() { 
+            console.log('[FlutterWeb3] enable() called, returning address directly');
+            return Promise.resolve(['${selectedAddress}']);
+          },
+          send: function(method, params) { 
+            console.log('[FlutterWeb3] send() called with:', method, params);
+            return this.request(typeof method === 'string' ? { method, params } : method); 
+          },
+          sendAsync: function(payload, cb) { 
+            console.log('[FlutterWeb3] sendAsync() called with:', payload);
+            this.request(payload).then(r => {
+              console.log('[FlutterWeb3] sendAsync success:', r);
+              cb(null, { result: r });
+            }).catch(e => {
+              console.error('[FlutterWeb3] sendAsync error:', e);
+              cb(e, null);
+            }); 
+          },
           
           // 事件监听器
           on: function(event, callback) {
@@ -810,12 +1183,42 @@ class Web3ProviderService {
         window.ethereum = provider;
         window.web3 = { currentProvider: provider };
         
+        // 调试信息
+        console.log('[FlutterWeb3] Provider set successfully');
+        console.log('[FlutterWeb3] window.ethereum:', window.ethereum);
+        console.log('[FlutterWeb3] isMetaMask:', window.ethereum.isMetaMask);
+        console.log('[FlutterWeb3] isHarbor:', window.ethereum.isHarbor);
+        
+        // 触发连接事件
+        provider._triggerConnect = function(accounts) {
+          console.log('[FlutterWeb3] Triggering connect event with accounts:', accounts);
+          if (this._events && this._events['connect']) {
+            this._events['connect'].forEach(callback => {
+              try {
+                callback({ chainId: '0x1' }); // Ethereum mainnet
+              } catch (e) {
+                console.error('[FlutterWeb3] Error in connect event callback:', e);
+              }
+            });
+          }
+          
+          if (this._events && this._events['accountsChanged']) {
+            this._events['accountsChanged'].forEach(callback => {
+              try {
+                callback(accounts);
+              } catch (e) {
+                console.error('[FlutterWeb3] Error in accountsChanged event callback:', e);
+              }
+            });
+          }
+        };
+        
         // EIP-6963: 钱包发现标准
         const walletInfo = {
-          uuid: 'harbor-flutter-wallet',
-          name: 'Harbor Wallet',
+          uuid: '$_fixedWalletUUID',
+          name: 'Harbor Wallet (Built-in)',
           icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iIzYzNjZGMSIvPgo8cGF0aCBkPSJNMTYgOEMxMi42ODYzIDggMTAgMTAuNjg2MyAxMCAxNEMxMCAxNy4zMTM3IDEyLjY4NjMgMjAgMTYgMjBDMTkuMzEzNyAyMCAyMiAxNy4zMTM3IDIyIDE0QzIyIDEwLjY4NjMgMTkuMzEzNyA4IDE2IDhaIiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4K',
-          rdns: 'com.harbor.wallet'
+          rdns: 'com.harbor.wallet.builtin'
         };
         
         // 发送EIP-6963钱包发现事件
@@ -845,19 +1248,71 @@ class Web3ProviderService {
   }
 
   Future<void> _handleSwitchChain(Web3Request request) async {
-    if (request.params.isEmpty) { throw Exception('Chain ID required'); }
+    if (request.params.isEmpty) {
+      throw Exception('Chain ID required');
+    }
     final chainIdParam = request.params.first as Map<String, dynamic>;
     final chainIdHex = chainIdParam['chainId'] as String?;
-    if (chainIdHex == null) { throw Exception('Chain ID is required'); }
+    if (chainIdHex == null) {
+      throw Exception('Chain ID is required');
+    }
+    
     final chainId = int.parse(chainIdHex.substring(2), radix: 16);
     final networks = _walletProvider.supportedNetworks;
     final targetNetwork = networks.firstWhere(
       (network) => network.chainId == chainId,
       orElse: () => throw Exception('Unsupported chain ID: $chainId'),
     );
+    
+    // 设置新网络
     _walletProvider.setCurrentNetwork(targetNetwork);
+    
+    // 清除缓存以确保使用新的网络信息
+    _cachedProviderJS = null;
+    _lastCachedChainId = null;
+    _lastCachedAddress = null;
+    
+    // 更新预加载信息
+    _preloadWalletInfo();
+    
+    // 重新注入 Provider
     await injectProvider();
-    debugPrint('Switched to network: ${targetNetwork.name}');
+    
+    // 触发网络切换事件
+    if (_webViewController != null) {
+      final newChainIdHex = '0x${chainId.toRadixString(16)}';
+      final newNetworkVersion = chainId.toString();
+      await _webViewController!.runJavaScript('''
+        // 更新 Provider 的网络信息
+        if (window.ethereum && window.ethereum._updateNetworkInfo) {
+          window.ethereum._updateNetworkInfo('$newChainIdHex', '$newNetworkVersion');
+        }
+        
+        // 触发 chainChanged 事件
+        if (window.ethereum && window.ethereum._events && window.ethereum._events['chainChanged']) {
+          window.ethereum._events['chainChanged'].forEach(callback => {
+            try {
+              callback('$newChainIdHex');
+            } catch (e) {
+              console.error('[FlutterWeb3] Chain changed event error:', e);
+            }
+          });
+        }
+        
+        // 触发 networkChanged 事件（兼容性）
+        if (window.ethereum && window.ethereum._events && window.ethereum._events['networkChanged']) {
+          window.ethereum._events['networkChanged'].forEach(callback => {
+            try {
+              callback('$newNetworkVersion');
+            } catch (e) {
+              console.error('[FlutterWeb3] Network changed event error:', e);
+            }
+          });
+        }
+      ''');
+    }
+    
+    debugPrint('Switched to network: ${targetNetwork.name} (chainId: $chainId)');
   }
 
   Future<void> _handleAddChain(Web3Request request) async {
@@ -870,40 +1325,59 @@ class Web3ProviderService {
   }
 
   Future<String> _handleSignTransaction(Web3Request request) async {
-    if (request.params.isEmpty) { throw Exception('Transaction parameters required'); }
+    if (request.params.isEmpty) {
+      throw Exception('Transaction parameters required');
+    }
     final txParams = request.params.first as Map<String, dynamic>;
     final from = txParams['from'] as String?;
     final to = txParams['to'] as String?;
     final valueHex = txParams['value'] as String?;
     final dataHex = txParams['data'] as String?;
-    final gasHex = (txParams['gas'] as String?) ?? (txParams['gasLimit'] as String?);
+    final gasHex =
+        (txParams['gas'] as String?) ?? (txParams['gasLimit'] as String?);
     final gasPriceHex = txParams['gasPrice'] as String?;
     final nonceHex = txParams['nonce'] as String?;
     final chainIdHex = txParams['chainId'] as String?;
 
-    if (from == null || from.isEmpty) { throw Exception('From address is required'); }
-    if (to == null || to.isEmpty) { throw Exception('To address is required'); }
+    if (from == null || from.isEmpty) {
+      throw Exception('From address is required');
+    }
+    if (to == null || to.isEmpty) {
+      throw Exception('To address is required');
+    }
 
     // 验证from地址权限 - 使用小写比较避免大小写问题
     final connection = _connectionService.getConnection(_currentOrigin!);
     final fromLower = from.toLowerCase();
-    final connectedAddressesLower = connection?.connectedAddresses.map((addr) => addr.toLowerCase()).toList() ?? [];
-    
-    if (connection == null || !connectedAddressesLower.contains(fromLower)) { 
-      debugPrint('Address authorization failed for transaction signing. From: $from, Connected: ${connection?.connectedAddresses}');
-      throw Exception('Address not authorized'); 
+    final connectedAddressesLower = connection?.connectedAddresses
+            .map((addr) => addr.toLowerCase())
+            .toList() ??
+        [];
+
+    if (connection == null || !connectedAddressesLower.contains(fromLower)) {
+      debugPrint(
+          'Address authorization failed for transaction signing. From: $from, Connected: ${connection?.connectedAddresses}');
+      throw Exception('Address not authorized');
     }
-    if (!connection.hasPermission(DAppPermission.sendTransactions)) { throw Exception('Send transaction permission not granted'); }
+    if (!connection.hasPermission(DAppPermission.sendTransactions)) {
+      throw Exception('Send transaction permission not granted');
+    }
 
     final currentWallet = _walletProvider.currentWallet;
     final currentNetwork = _walletProvider.currentNetwork;
-    if (currentWallet == null || currentNetwork == null) { throw Exception('No active wallet or network selected'); }
+    if (currentWallet == null || currentNetwork == null) {
+      throw Exception('No active wallet or network selected');
+    }
 
     final addresses = currentWallet.addresses[currentNetwork.id];
-    final addressesLower = addresses?.map((addr) => addr.toLowerCase()).toList();
-    if (addresses == null || addressesLower == null || !addressesLower.contains(fromLower)) { 
-      debugPrint('Address not found in wallet for transaction signing. From: $from, Wallet addresses: $addresses');
-      throw Exception('Address not found in current wallet for network'); 
+    final addressesLower =
+        addresses?.map((addr) => addr.toLowerCase()).toList();
+    if (addresses == null ||
+        addressesLower == null ||
+        !addressesLower.contains(fromLower)) {
+      debugPrint(
+          'Address not found in wallet for transaction signing. From: $from, Wallet addresses: $addresses');
+      throw Exception('Address not found in current wallet for network');
     }
     final addressIndex = addressesLower.indexOf(fromLower);
 
@@ -912,6 +1386,7 @@ class Web3ProviderService {
       final s = hexStr.startsWith('0x') ? hexStr.substring(2) : hexStr;
       return s.isEmpty ? BigInt.zero : BigInt.parse(s, radix: 16);
     }
+
     int? _parseHexInt(String? hexStr) {
       if (hexStr == null || hexStr.isEmpty) return null;
       final s = hexStr.startsWith('0x') ? hexStr.substring(2) : hexStr;
@@ -922,7 +1397,9 @@ class Web3ProviderService {
     final gasPriceWei = _parseHexBigInt(gasPriceHex);
     final gasLimitInt = _parseHexInt(gasHex);
     final nonceInt = _parseHexInt(nonceHex);
-    final chainId = chainIdHex != null && chainIdHex.isNotEmpty ? int.parse(chainIdHex.substring(2), radix: 16) : currentNetwork.chainId;
+    final chainId = chainIdHex != null && chainIdHex.isNotEmpty
+        ? int.parse(chainIdHex.substring(2), radix: 16)
+        : currentNetwork.chainId;
 
     Uint8List? dataBytes;
     if (dataHex != null && dataHex.isNotEmpty) {
@@ -932,13 +1409,18 @@ class Web3ProviderService {
 
     try {
       final mnemonic = currentWallet.mnemonic;
-      if (mnemonic.isEmpty) { throw Exception('Unable to access signing key. Please implement password callback for private-key wallets.'); }
+      if (mnemonic.isEmpty) {
+        throw Exception(
+            'Unable to access signing key. Please implement password callback for private-key wallets.');
+      }
       final seed = bip39.mnemonicToSeed(mnemonic);
       final root = bip32.BIP32.fromSeed(seed);
       final derivationPath = DerivationPaths.ethereumWithIndex(addressIndex);
       final child = root.derivePath(derivationPath);
       final privateKeyBytes = child.privateKey;
-      if (privateKeyBytes == null) { throw Exception('Failed to derive private key'); }
+      if (privateKeyBytes == null) {
+        throw Exception('Failed to derive private key');
+      }
       final privateKeyHex = hex.HEX.encode(privateKeyBytes);
       final credentials = web3.EthPrivateKey.fromHex(privateKeyHex);
 
@@ -946,28 +1428,44 @@ class Web3ProviderService {
       final fromAddress = web3.EthereumAddress.fromHex(from);
       final toAddress = web3.EthereumAddress.fromHex(to);
 
-      final valueAmount = web3.EtherAmount.fromUnitAndValue(web3.EtherUnit.wei, valueWei);
-      web3.EtherAmount? gasPriceAmount = gasPriceWei > BigInt.zero ? web3.EtherAmount.fromUnitAndValue(web3.EtherUnit.wei, gasPriceWei) : null;
+      final valueAmount =
+          web3.EtherAmount.fromUnitAndValue(web3.EtherUnit.wei, valueWei);
+      web3.EtherAmount? gasPriceAmount = gasPriceWei > BigInt.zero
+          ? web3.EtherAmount.fromUnitAndValue(web3.EtherUnit.wei, gasPriceWei)
+          : null;
 
       int? effectiveNonce = nonceInt;
       if (effectiveNonce == null) {
-        effectiveNonce = await client.getTransactionCount(fromAddress, atBlock: const web3.BlockNum.pending());
+        effectiveNonce = await client.getTransactionCount(fromAddress,
+            atBlock: const web3.BlockNum.pending());
       }
       if (gasPriceAmount == null) {
         gasPriceAmount = await client.getGasPrice();
       }
       int? effectiveGasLimit = gasLimitInt;
       if (effectiveGasLimit == null) {
-        final estimated = await client.estimateGas(sender: fromAddress, to: toAddress, value: valueAmount, data: dataBytes);
+        final estimated = await client.estimateGas(
+            sender: fromAddress,
+            to: toAddress,
+            value: valueAmount,
+            data: dataBytes);
         effectiveGasLimit = estimated.toInt();
       }
 
-      final tx = web3.Transaction(to: toAddress, value: valueAmount, data: dataBytes, maxGas: effectiveGasLimit, gasPrice: gasPriceAmount, nonce: effectiveNonce);
-      final signedBytes = await client.signTransaction(credentials, tx, chainId: chainId);
+      final tx = web3.Transaction(
+          to: toAddress,
+          value: valueAmount,
+          data: dataBytes,
+          maxGas: effectiveGasLimit,
+          gasPrice: gasPriceAmount,
+          nonce: effectiveNonce);
+      final signedBytes =
+          await client.signTransaction(credentials, tx, chainId: chainId);
       client.dispose();
 
       final signedHex = '0x${hex.HEX.encode(signedBytes)}';
-      debugPrint('Transaction signed (eth_signTransaction). From: $from, To: $to, ChainId: $chainId');
+      debugPrint(
+          'Transaction signed (eth_signTransaction). From: $from, To: $to, ChainId: $chainId');
       return signedHex;
     } catch (e) {
       debugPrint('Failed to sign transaction: $e');
@@ -978,8 +1476,9 @@ class Web3ProviderService {
   /// 处理撤销权限请求
   Future<dynamic> _handleRevokePermissions(Web3Request request) async {
     try {
-      debugPrint('Handling wallet_revokePermissions request from ${request.origin}');
-      
+      debugPrint(
+          'Handling wallet_revokePermissions request from ${request.origin}');
+
       // 解析权限参数
       if (request.params.isEmpty) {
         throw Exception('Missing permissions parameter');
@@ -991,13 +1490,397 @@ class Web3ProviderService {
       }
 
       // 调用连接服务撤销权限
-      await _connectionService.revokePermissions(request.origin, permissionsParam);
+      await _connectionService.revokePermissions(
+          request.origin, permissionsParam);
 
       debugPrint('Permissions revoked successfully for ${request.origin}');
       return null; // wallet_revokePermissions 通常返回 null
     } catch (e) {
       debugPrint('Failed to revoke permissions: $e');
       throw Exception('wallet_revokePermissions failed: $e');
+    }
+  }
+
+  /// 处理请求权限
+  Future<dynamic> _handleRequestPermissions(Web3Request request) async {
+    try {
+      debugPrint(
+          'Handling wallet_requestPermissions request from ${request.origin}');
+
+      // 解析权限参数
+      if (request.params.isEmpty) {
+        throw Exception('Missing permissions parameter');
+      }
+
+      final permissionsParam = request.params.first;
+      if (permissionsParam is! Map<String, dynamic>) {
+        throw Exception('Invalid permissions parameter format');
+      }
+
+      // 检查连接状态
+      final connection = _connectionService.getConnection(request.origin);
+      if (connection == null) {
+        throw Exception('DApp not connected');
+      }
+
+      // 解析请求的权限
+      final requestedPermissions = <DAppPermission>[];
+
+      if (permissionsParam.containsKey('eth_accounts')) {
+        requestedPermissions.add(DAppPermission.readAccounts);
+      }
+
+      // 可以根据需要添加更多权限类型的处理
+      // 例如：sendTransactions, signMessages等
+
+      // 为DApp添加权限
+      for (final permission in requestedPermissions) {
+        if (!connection.hasPermission(permission)) {
+          await _connectionService.addPermission(request.origin, permission);
+        }
+      }
+
+      // 返回权限状态
+      final result = <Map<String, dynamic>>[];
+      for (final permission in requestedPermissions) {
+        result.add({
+          'parentCapability': _getPermissionName(permission),
+          'date': DateTime.now().millisecondsSinceEpoch,
+        });
+      }
+
+      debugPrint('Permissions granted successfully for ${request.origin}');
+      return result;
+    } catch (e) {
+      debugPrint('Failed to request permissions: $e');
+      throw Exception('wallet_requestPermissions failed: $e');
+    }
+  }
+
+  /// 获取权限名称
+  String _getPermissionName(DAppPermission permission) {
+    switch (permission) {
+      case DAppPermission.readAccounts:
+        return 'eth_accounts';
+      case DAppPermission.sendTransactions:
+        return 'eth_sendTransaction';
+      case DAppPermission.signMessages:
+        return 'eth_sign';
+      case DAppPermission.switchNetworks:
+        return 'wallet_switchEthereumChain';
+      case DAppPermission.addTokens:
+        return 'wallet_watchAsset';
+    }
+  }
+
+  /// 处理获取钱包能力
+  Future<Map<String, dynamic>> _handleGetCapabilities(
+      Web3Request request) async {
+    try {
+      debugPrint('Handling wallet_getCapabilities request');
+
+      // 返回钱包支持的能力
+      return {
+        'accounts': {
+          'supported': true,
+        },
+        'methods': {
+          'supported': [
+            'eth_accounts',
+            'eth_requestAccounts',
+            'eth_sendTransaction',
+            'eth_signTransaction',
+            'personal_sign',
+            'eth_signTypedData',
+            'eth_signTypedData_v4',
+            'wallet_switchEthereumChain',
+            'wallet_addEthereumChain',
+            'wallet_watchAsset',
+          ],
+        },
+        'events': {
+          'supported': [
+            'accountsChanged',
+            'chainChanged',
+            'connect',
+            'disconnect',
+          ],
+        },
+      };
+    } catch (e) {
+      debugPrint('Failed to get capabilities: $e');
+      throw Exception('wallet_getCapabilities failed: $e');
+    }
+  }
+
+  /// 处理获取区块号
+  Future<String> _handleBlockNumber(Web3Request request) async {
+    try {
+      final currentNetwork = _walletProvider.currentNetwork;
+      if (currentNetwork == null) {
+        throw Exception('No network selected');
+      }
+
+      debugPrint('Getting block number for network: ${currentNetwork.name}');
+
+      // 调用RPC获取最新区块号
+      final client = http.Client();
+      final response = await client.post(
+        Uri.parse(currentNetwork.rpcUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'jsonrpc': '2.0',
+          'method': 'eth_blockNumber',
+          'params': [],
+          'id': 1,
+        }),
+      );
+
+      client.close();
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['error'] != null) {
+          throw Exception(data['error']['message']);
+        }
+        return data['result'] as String;
+      } else {
+        throw Exception('HTTP ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('Failed to get block number: $e');
+      throw Exception('eth_blockNumber failed: $e');
+    }
+  }
+
+  /// 处理获取余额
+  Future<String> _handleGetBalance(Web3Request request) async {
+    try {
+      if (request.params.isEmpty) {
+        throw Exception('Address parameter required');
+      }
+
+      final address = request.params[0] as String;
+      final blockTag =
+          request.params.length > 1 ? request.params[1] as String : 'latest';
+
+      final currentNetwork = _walletProvider.currentNetwork;
+      if (currentNetwork == null) {
+        throw Exception('No network selected');
+      }
+
+      debugPrint('Getting balance for address: $address, block: $blockTag');
+
+      // 调用RPC获取余额
+      final client = http.Client();
+      final response = await client.post(
+        Uri.parse(currentNetwork.rpcUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'jsonrpc': '2.0',
+          'method': 'eth_getBalance',
+          'params': [address, blockTag],
+          'id': 1,
+        }),
+      );
+
+      client.close();
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['error'] != null) {
+          throw Exception(data['error']['message']);
+        }
+        return data['result'] as String;
+      } else {
+        throw Exception('HTTP ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('Failed to get balance: $e');
+      throw Exception('eth_getBalance failed: $e');
+    }
+  }
+
+  /// 处理合约调用
+  Future<String> _handleEthCall(Web3Request request) async {
+    try {
+      if (request.params.isEmpty) {
+        throw Exception('Transaction object required');
+      }
+
+      final txObject = request.params[0] as Map<String, dynamic>;
+      final blockTag =
+          request.params.length > 1 ? request.params[1] as String : 'latest';
+
+      final currentNetwork = _walletProvider.currentNetwork;
+      if (currentNetwork == null) {
+        throw Exception('No network selected');
+      }
+
+      debugPrint('Making eth_call: $txObject, block: $blockTag');
+
+      // 调用RPC执行合约调用
+      final client = http.Client();
+      final response = await client.post(
+        Uri.parse(currentNetwork.rpcUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'jsonrpc': '2.0',
+          'method': 'eth_call',
+          'params': [txObject, blockTag],
+          'id': 1,
+        }),
+      );
+
+      client.close();
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['error'] != null) {
+          throw Exception(data['error']['message']);
+        }
+        return data['result'] as String;
+      } else {
+        throw Exception('HTTP ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('Failed to make eth_call: $e');
+      throw Exception('eth_call failed: $e');
+    }
+  }
+
+  /// 处理估算Gas
+  Future<String> _handleEstimateGas(Web3Request request) async {
+    try {
+      if (request.params.isEmpty) {
+        throw Exception('Transaction object required');
+      }
+
+      final txObject = request.params[0] as Map<String, dynamic>;
+
+      final currentNetwork = _walletProvider.currentNetwork;
+      if (currentNetwork == null) {
+        throw Exception('No network selected');
+      }
+
+      debugPrint('Estimating gas for: $txObject');
+
+      // 调用RPC估算Gas
+      final client = http.Client();
+      final response = await client.post(
+        Uri.parse(currentNetwork.rpcUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'jsonrpc': '2.0',
+          'method': 'eth_estimateGas',
+          'params': [txObject],
+          'id': 1,
+        }),
+      );
+
+      client.close();
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['error'] != null) {
+          throw Exception(data['error']['message']);
+        }
+        return data['result'] as String;
+      } else {
+        throw Exception('HTTP ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('Failed to estimate gas: $e');
+      throw Exception('eth_estimateGas failed: $e');
+    }
+  }
+
+  /// 处理获取Gas价格
+  Future<String> _handleGasPrice(Web3Request request) async {
+    try {
+      final currentNetwork = _walletProvider.currentNetwork;
+      if (currentNetwork == null) {
+        throw Exception('No network selected');
+      }
+
+      debugPrint('Getting gas price for network: ${currentNetwork.name}');
+
+      // 调用RPC获取Gas价格
+      final client = http.Client();
+      final response = await client.post(
+        Uri.parse(currentNetwork.rpcUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'jsonrpc': '2.0',
+          'method': 'eth_gasPrice',
+          'params': [],
+          'id': 1,
+        }),
+      );
+
+      client.close();
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['error'] != null) {
+          throw Exception(data['error']['message']);
+        }
+        return data['result'] as String;
+      } else {
+        throw Exception('HTTP ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('Failed to get gas price: $e');
+      throw Exception('eth_gasPrice failed: $e');
+    }
+  }
+
+  /// 处理获取交易计数
+  Future<String> _handleGetTransactionCount(Web3Request request) async {
+    try {
+      if (request.params.isEmpty) {
+        throw Exception('Address parameter required');
+      }
+
+      final address = request.params[0] as String;
+      final blockTag =
+          request.params.length > 1 ? request.params[1] as String : 'latest';
+
+      final currentNetwork = _walletProvider.currentNetwork;
+      if (currentNetwork == null) {
+        throw Exception('No network selected');
+      }
+
+      debugPrint(
+          'Getting transaction count for address: $address, block: $blockTag');
+
+      // 调用RPC获取交易计数
+      final client = http.Client();
+      final response = await client.post(
+        Uri.parse(currentNetwork.rpcUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'jsonrpc': '2.0',
+          'method': 'eth_getTransactionCount',
+          'params': [address, blockTag],
+          'id': 1,
+        }),
+      );
+
+      client.close();
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['error'] != null) {
+          throw Exception(data['error']['message']);
+        }
+        return data['result'] as String;
+      } else {
+        throw Exception('HTTP ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('Failed to get transaction count: $e');
+      throw Exception('eth_getTransactionCount failed: $e');
     }
   }
 

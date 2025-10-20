@@ -1269,7 +1269,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             Navigator.pushReplacementNamed(context, '/swap');
             break;
           case 2:
-            Navigator.pushReplacementNamed(context, '/dapp-browser');
+            Navigator.pushReplacementNamed(context, '/dapp-discovery');
             break;
           case 3:
             Navigator.pushReplacementNamed(context, '/settings');

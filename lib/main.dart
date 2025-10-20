@@ -20,12 +20,14 @@ import 'screens/security_settings_screen.dart';
 import 'screens/add_token_screen.dart';
 import 'screens/walletconnect_sessions_screen.dart';
 import 'screens/dapp_browser_screen.dart';
+import 'screens/dapp_discovery_screen.dart';
 import 'screens/reset_password_screen.dart';
 import 'screens/set_new_password_screen.dart';
 import 'screens/confirm_password_screen.dart';
 import 'screens/import_mnemonic_screen.dart';
 import 'screens/hot_tokens_screen.dart';
 import 'screens/token_detail_screen.dart';
+import 'screens/qr_scanner_screen.dart';
 
 import 'services/walletconnect_service.dart';
 import 'services/solana_wallet_service.dart';
@@ -124,7 +126,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               previous ?? WalletConnectService(walletService, walletProvider),
         ),
         ChangeNotifierProvider<DAppConnectionService>(
-          create: (_) => DAppConnectionService(),
+          create: (_) {
+            final service = DAppConnectionService();
+            // 异步初始化服务
+            service.initialize();
+            return service;
+          },
         ),
       ],
       child: Consumer<ThemeProvider>(
@@ -177,11 +184,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               '/walletconnect-sessions': (context) =>
                   const WalletConnectSessionsScreen(),
               '/dapp-browser': (context) => const DAppBrowserScreen(),
+              '/dapp-discovery': (context) => const DAppDiscoveryScreen(),
               '/reset-password': (context) => const ResetPasswordScreen(),
               '/set-new-password': (context) => const SetNewPasswordScreen(),
               '/confirm-password': (context) => const ConfirmPasswordScreen(),
               '/import-mnemonic': (context) => const ImportMnemonicScreen(),
               '/hot-tokens': (context) => const HotTokensScreen(),
+              '/qr-scanner': (context) => const QRScannerScreen(),
             },
             onGenerateRoute: (settings) {
               if (settings.name == '/send_detail') {

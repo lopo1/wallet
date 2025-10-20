@@ -105,8 +105,9 @@ class WalletProvider extends ChangeNotifier {
         name: 'BSC',
         symbol: 'BNB',
         chainId: 56,
-        rpcUrl: 'https://data-seed-prebsc-1-s3.bnbchain.org:8545',
+        rpcUrl: 'https://bsc.blockpi.network/v1/rpc/77e2b602c1012feb83cfc51b592656b3dcfa231f',
         rpcUrls: [
+          'https://bsc.blockpi.network/v1/rpc/77e2b602c1012feb83cfc51b592656b3dcfa231f',
           'https://data-seed-prebsc-1-s3.bnbchain.org:8545',
           'https://bsc-dataseed.binance.org',
           'https://bsc-dataseed1.defibit.io',

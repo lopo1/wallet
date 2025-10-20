@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Web3方法扩展测试</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        button { padding: 10px 20px; margin: 5px; font-size: 14px; }
+        .result { margin: 10px 0; padding: 10px; background: #f0f0f0; border-radius: 4px; }
+        .error { background: #ffebee; color: #c62828; }
+        .success { background: #e8f5e8; color: #2e7d32; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
+        .section h3 { margin-top: 0; color: #333; }
+    </style>
+</head>
+<body>
+    <h1>Web3方法扩展测试</h1>
+    
+    <div class="section">
+        <h3>基础方法</h3>
+        <button onclick="connectWallet()">连接钱包</button>
+        <button onclick="getAccounts()">获取账户</button>
+        <button onclick="getChainId()">获取链ID</button>
+        <button onclick="getCapabilities()">获取钱包能力</button>
+    </div>
+
+    <div class="section">
+        <h3>区块链查询方法</h3>
+        <button onclick="getBlockNumber()">获取区块号</button>
+        <button onclick="getBalance()">获取余额</button>
+        <button onclick="getGasPrice()">获取Gas价格</button>
+        <button onclick="getTransactionCount()">获取交易计数</button>
+    </div>
+
+    <div class="section">
+        <h3>合约交互方法</h3>
+        <button onclick="testEthCall()">测试合约调用</button>
+        <button onclick="testEstimateGas()">估算Gas</button>
+    </div>
+    
+    <div id="results"></div>
+
+    <script>
+        let currentAccount = null;
+
+        function log(message, isError = false) {
+            const div = document.createElement('div');
+            div.className = 'result ' + (isError ? 'error' : 'success');
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}:</strong> ${message}`;
+            document.getElementById('results').appendChild(div);
+            console.log(message);
+            
+            // 自动滚动到底部
+            div.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        async function connectWallet() {
+            try {
+                log('🔄 连接钱包...');
+                const accounts = await window.ethereum.request({ 
+                    method: 'eth_requestAccounts' 
+                });
+                currentAccount = accounts[0];
+                log(`✅ 连接成功! 账户: ${currentAccount}`);
+            } catch (error) {
+                log(`❌ 连接失败: ${error.message}`, true);
+            }
+        }
+
+        async function getAccounts() {
+            try {
+                const accounts = await window.ethereum.request({ 
+                    method: 'eth_accounts' 
+                });
+                log(`✅ 账户列表: ${JSON.stringify(accounts)}`);
+            } catch (error) {
+                log(`❌ 获取账户失败: ${error.message}`, true);
+            }
+        }
+
+        async function getChainId() {
+            try {
+                const chainId = await window.ethereum.request({ 
+                    method: 'eth_chainId' 
+                });
+                log(`✅ 链ID: ${chainId} (${parseInt(chainId, 16)})`);
+            } catch (error) {
+                log(`❌ 获取链ID失败: ${error.message}`, true);
+            }
+        }
+
+        async function getCapabilities() {
+            try {
+                log('🔄 获取钱包能力...');
+                const capabilities = await window.ethereum.request({ 
+                    method: 'wallet_getCapabilities',
+                    params: [currentAccount || '0x0000000000000000000000000000000000000000']
+                });
+                log(`✅ 钱包能力: <pre>${JSON.stringify(capabilities, null, 2)}</pre>`);
+            } catch (error) {
+                log(`❌ 获取钱包能力失败: ${error.message}`, true);
+            }
+        }
+
+        async function getBlockNumber() {
+            try {
+                log('🔄 获取最新区块号...');
+                const blockNumber = await window.ethereum.request({ 
+                    method: 'eth_blockNumber' 
+                });
+                log(`✅ 最新区块号: ${blockNumber} (${parseInt(blockNumber, 16)})`);
+            } catch (error) {
+                log(`❌ 获取区块号失败: ${error.message}`, true);
+            }
+        }
+
+        async function getBalance() {
+            try {
+                if (!currentAccount) {
+                    log('❌ 请先连接钱包', true);
+                    return;
+                }
+                
+                log(`🔄 获取账户余额: ${currentAccount}...`);
+                const balance = await window.ethereum.request({ 
+                    method: 'eth_getBalance',
+                    params: [currentAccount, 'latest']
+                });
+                const balanceInEth = parseInt(balance, 16) / Math.pow(10, 18);
+                log(`✅ 账户余额: ${balance} wei (${balanceInEth.toFixed(6)} ETH)`);
+            } catch (error) {
+                log(`❌ 获取余额失败: ${error.message}`, true);
+            }
+        }
+
+        async function getGasPrice() {
+            try {
+                log('🔄 获取当前Gas价格...');
+                const gasPrice = await window.ethereum.request({ 
+                    method: 'eth_gasPrice' 
+                });
+                const gasPriceInGwei = parseInt(gasPrice, 16) / Math.pow(10, 9);
+                log(`✅ Gas价格: ${gasPrice} wei (${gasPriceInGwei.toFixed(2)} Gwei)`);
+            } catch (error) {
+                log(`❌ 获取Gas价格失败: ${error.message}`, true);
+            }
+        }
+
+        async function getTransactionCount() {
+            try {
+                if (!currentAccount) {
+                    log('❌ 请先连接钱包', true);
+                    return;
+                }
+                
+                log(`🔄 获取交易计数: ${currentAccount}...`);
+                const txCount = await window.ethereum.request({ 
+                    method: 'eth_getTransactionCount',
+                    params: [currentAccount, 'latest']
+                });
+                log(`✅ 交易计数 (nonce): ${txCount} (${parseInt(txCount, 16)})`);
+            } catch (error) {
+                log(`❌ 获取交易计数失败: ${error.message}`, true);
+            }
+        }
+
+        async function testEthCall() {
+            try {
+                log('🔄 测试合约调用 (获取ETH总供应量)...');
+                // 调用一个简单的合约方法 - 获取ETH总供应量 (这个调用在大多数网络上都会失败，但可以测试方法是否工作)
+                const result = await window.ethereum.request({ 
+                    method: 'eth_call',
+                    params: [{
+                        to: '0x0000000000000000000000000000000000000000',
+                        data: '0x18160ddd' // totalSupply() 方法签名
+                    }, 'latest']
+                });
+                log(`✅ 合约调用结果: ${result}`);
+            } catch (error) {
+                log(`❌ 合约调用失败: ${error.message}`, true);
+            }
+        }
+
+        async function testEstimateGas() {
+            try {
+                if (!currentAccount) {
+                    log('❌ 请先连接钱包', true);
+                    return;
+                }
+                
+                log('🔄 估算Gas (简单转账)...');
+                const gasEstimate = await window.ethereum.request({ 
+                    method: 'eth_estimateGas',
+                    params: [{
+                        from: currentAccount,
+                        to: '0x0000000000000000000000000000000000000000',
+                        value: '0x0' // 0 ETH
+                    }]
+                });
+                log(`✅ Gas估算: ${gasEstimate} (${parseInt(gasEstimate, 16)})`);
+            } catch (error) {
+                log(`❌ Gas估算失败: ${error.message}`, true);
+            }
+        }
+
+        // 页面加载时自动连接
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                if (window.ethereum) {
+                    log('✅ 检测到Web3 Provider');
+                    connectWallet();
+                } else {
+                    log('❌ 未检测到Web3 Provider', true);
+                }
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

@@ -305,7 +305,7 @@ class _SwapScreenState extends State<SwapScreen> {
               // current page
               break;
             case 2:
-              Navigator.pushReplacementNamed(context, '/dapp-browser');
+              Navigator.pushReplacementNamed(context, '/dapp-discovery');
               break;
             case 3:
               Navigator.pushReplacementNamed(context, '/settings');

@@ -91,6 +91,34 @@ class DAppConnectionService extends ChangeNotifier {
   /// 连接DApp
   Future<bool> connectDApp(DAppConnectionRequest request) async {
     try {
+      debugPrint('=== 开始连接DApp ===');
+      debugPrint('Origin: ${request.origin}');
+      debugPrint('Name: ${request.name}');
+      debugPrint('Network: ${request.networkId}');
+      debugPrint('Addresses: ${request.requestedAddresses}');
+      debugPrint(
+          'Permissions: ${request.requestedPermissions.map((p) => p.toString()).join(', ')}');
+
+      // 验证请求参数
+      if (request.origin.isEmpty) {
+        throw Exception('Origin不能为空');
+      }
+
+      if (request.requestedAddresses.isEmpty) {
+        throw Exception('请求的地址列表不能为空');
+      }
+
+      if (request.networkId.isEmpty) {
+        throw Exception('网络ID不能为空');
+      }
+
+      // 验证地址格式
+      for (final address in request.requestedAddresses) {
+        if (!RegExp(r'^0x[a-fA-F0-9]{40}$').hasMatch(address)) {
+          throw Exception('地址格式无效: $address');
+        }
+      }
+
       final connection = DAppConnection(
         origin: request.origin,
         name: request.name,
@@ -104,15 +132,35 @@ class DAppConnectionService extends ChangeNotifier {
         metadata: request.metadata,
       );
 
-      _connections[request.origin] = connection;
-      await _saveConnections();
+      debugPrint('创建连接对象: ${connection.toJson()}');
 
+      _connections[request.origin] = connection;
+
+      // 保存连接数据
+      try {
+        await _saveConnections();
+        debugPrint('连接数据已保存');
+      } catch (e) {
+        debugPrint('保存连接数据失败: $e');
+        // 移除已添加的连接
+        _connections.remove(request.origin);
+        throw Exception('保存连接数据失败: $e');
+      }
+
+      // 通知监听器
       notifyListeners();
 
-      debugPrint('DApp connected: ${request.origin}');
+      debugPrint('=== DApp连接成功 ===');
+      debugPrint('Origin: ${request.origin}');
+      debugPrint('连接状态: ${connection.status}');
+      debugPrint('总连接数: ${_connections.length}');
+
       return true;
     } catch (e) {
-      debugPrint('Failed to connect DApp ${request.origin}: $e');
+      debugPrint('=== DApp连接失败 ===');
+      debugPrint('Origin: ${request.origin}');
+      debugPrint('错误: $e');
+      debugPrint('错误堆栈: ${StackTrace.current}');
       return false;
     }
   }
@@ -438,7 +486,8 @@ class DAppConnectionService extends ChangeNotifier {
   }
 
   /// 撤销DApp权限
-  Future<void> revokePermissions(String origin, Map<String, dynamic> permissions) async {
+  Future<void> revokePermissions(
+      String origin, Map<String, dynamic> permissions) async {
     try {
       final connection = _connections[origin];
       if (connection == null) {

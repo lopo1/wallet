@@ -43,7 +43,7 @@ class _DAppBrowserScreenState extends State<DAppBrowserScreen> {
   double _loadingProgress = 0.0;
   String _pageTitle = '';
   bool _isConnected = false;
-  bool _isFavorite = false;
+
   String? _currentOrigin;
   bool _canGoBack = false;
   bool _canGoForward = false;
@@ -56,26 +56,56 @@ class _DAppBrowserScreenState extends State<DAppBrowserScreen> {
   @override
   void initState() {
     super.initState();
-    _initializeServices();
-    _initializeWebView();
+    _initializeApp();
+  }
 
-    // 设置初始URL
-    if (widget.initialUrl != null) {
-      _urlController.text = widget.initialUrl!;
-      _pendingUrl = widget.initialUrl!;
-      // 如果有初始URL，先显示连接对话框
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _showConnectionDialogBeforeNavigate(_pendingUrl!);
+  /// 初始化应用
+  Future<void> _initializeApp() async {
+    try {
+      // 初始化服务
+      _initializeServices();
+
+      // 等待DApp连接服务初始化完成
+      await _connectionService.initialize();
+
+      // 初始化WebView
+      _initializeWebView();
+
+      // 设置初始URL
+      if (widget.initialUrl != null) {
+        _urlController.text = widget.initialUrl!;
+        _pendingUrl = widget.initialUrl!;
+        // 如果有初始URL，延迟显示连接对话框以确保服务已初始化
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          // 等待更长时间确保所有服务都已初始化
+          await Future.delayed(const Duration(milliseconds: 500));
+          if (mounted && _pendingUrl != null) {
+            _showConnectionDialogBeforeNavigate(_pendingUrl!);
+          }
+        });
+      } else {
+        // 没有初始URL，显示搜索界面
+        _showWebView = false;
+      }
+
+      // 监听URL输入变化
+      _urlController.addListener(() {
+        if (mounted) {
+          setState(() {});
+        }
       });
-    } else {
-      // 没有初始URL，显示搜索界面
-      _showWebView = false;
+    } catch (e) {
+      debugPrint('DApp浏览器初始化失败: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('初始化失败: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
     }
-
-    // 监听URL输入变化
-    _urlController.addListener(() {
-      setState(() {});
-    });
   }
 
   @override
@@ -88,14 +118,26 @@ class _DAppBrowserScreenState extends State<DAppBrowserScreen> {
 
   /// 初始化服务
   void _initializeServices() {
-    _connectionService =
-        Provider.of<DAppConnectionService>(context, listen: false);
-    _walletProvider = Provider.of<WalletProvider>(context, listen: false);
+    try {
+      _connectionService =
+          Provider.of<DAppConnectionService>(context, listen: false);
+      _walletProvider = Provider.of<WalletProvider>(context, listen: false);
 
-    _web3ProviderService = Web3ProviderService(
-      walletProvider: _walletProvider,
-      connectionService: _connectionService,
-    );
+      debugPrint('=== DApp浏览器服务初始化 ===');
+      debugPrint('连接服务: 已获取');
+      debugPrint('钱包提供者: 已获取');
+
+      _web3ProviderService = Web3ProviderService(
+        walletProvider: _walletProvider,
+        connectionService: _connectionService,
+      );
+
+      debugPrint('Web3提供者服务: 已创建');
+      debugPrint('=== 服务初始化完成 ===');
+    } catch (e) {
+      debugPrint('服务初始化失败: $e');
+      rethrow;
+    }
   }
 
   /// 初始化WebView
@@ -132,7 +174,12 @@ class _DAppBrowserScreenState extends State<DAppBrowserScreen> {
             await _updateNavigationState();
 
             // 注入Web3 Provider
-            await _injectWeb3Provider();
+            try {
+              await _injectWeb3Provider();
+              debugPrint('Web3 Provider注入成功');
+            } catch (e) {
+              debugPrint('Web3 Provider注入失败: $e');
+            }
           },
           onProgress: (int progress) {
             setState(() {
@@ -184,9 +231,6 @@ class _DAppBrowserScreenState extends State<DAppBrowserScreen> {
         _isConnected = _connectionService.isConnected(origin);
       });
 
-      // 检查收藏状态
-      _checkFavoriteStatus();
-
       // 添加到历史记录
       _connectionService.addToHistory(origin);
 
@@ -222,39 +266,350 @@ class _DAppBrowserScreenState extends State<DAppBrowserScreen> {
       final data = jsonDecode(message);
       debugPrint('收到Web3消息: $data');
 
-      final result = await _web3ProviderService.handleWeb3Request(data);
+      final method = data['method'] as String?;
 
-      // 发送响应
-      final requestId = data['id']?.toString();
-      if (requestId != null) {
-        await _web3ProviderService.sendResponse(requestId, result);
+      // 检查是否需要用户确认的签名操作
+      if (method == 'personal_sign' ||
+          method == 'eth_sign' ||
+          method == 'eth_signTypedData' ||
+          method == 'eth_signTypedData_v4') {
+        // 显示签名确认对话框
+        final confirmed = await _showSignatureConfirmationDialog(data);
+        if (!confirmed) {
+          // 用户拒绝签名
+          final errorResponse = {
+            'id': data['id'],
+            'jsonrpc': '2.0',
+            'error': {
+              'code': 4001,
+              'message': 'User rejected the request',
+            },
+          };
+          await _webViewController.runJavaScript(
+            'window.postMessage(${jsonEncode(errorResponse)}, "*");',
+          );
+          return;
+        }
+
+        // 用户确认后，继续处理签名请求
+        debugPrint(
+            'Processing Web3 request after user confirmation: ${data['method']}');
+        final stopwatch = Stopwatch()..start();
+        final result = await _web3ProviderService.handleWeb3Request(data);
+        stopwatch.stop();
+        debugPrint(
+            'Web3 request processed in ${stopwatch.elapsedMilliseconds}ms, result: $result');
+        final response = {
+          'id': data['id'],
+          'jsonrpc': '2.0',
+          'result': result,
+        };
+        debugPrint('Sending response to DApp: ${jsonEncode(response)}');
+        final jsStopwatch = Stopwatch()..start();
+        
+        // 发送响应到JavaScript
+        await _webViewController.runJavaScript(
+          'window.postMessage(${jsonEncode(response)}, "*");',
+        );
+        
+        // 同时调用handleFlutterWeb3Response确保回调被触发
+        await _webViewController.runJavaScript(
+          'if (window.handleFlutterWeb3Response) { window.handleFlutterWeb3Response(${jsonEncode(response)}); }',
+        );
+        
+        jsStopwatch.stop();
+        debugPrint(
+            'JavaScript execution completed in ${jsStopwatch.elapsedMilliseconds}ms');
+        debugPrint('Response sent successfully to DApp with signature: $result');
+      } else {
+        // 非签名操作，直接处理
+        debugPrint('Processing Web3 request directly: ${data['method']}');
+        final stopwatch = Stopwatch()..start();
+        final result = await _web3ProviderService.handleWeb3Request(data);
+        stopwatch.stop();
+        debugPrint(
+            'Web3 request processed in ${stopwatch.elapsedMilliseconds}ms, result: $result');
+        final response = {
+          'id': data['id'],
+          'jsonrpc': '2.0',
+          'result': result,
+        };
+        debugPrint('Sending response to DApp: ${jsonEncode(response)}');
+        final jsStopwatch = Stopwatch()..start();
+        
+        // 发送响应到JavaScript
+        await _webViewController.runJavaScript(
+          'window.postMessage(${jsonEncode(response)}, "*");',
+        );
+        
+        // 同时调用handleFlutterWeb3Response确保回调被触发
+        await _webViewController.runJavaScript(
+          'if (window.handleFlutterWeb3Response) { window.handleFlutterWeb3Response(${jsonEncode(response)}); }',
+        );
+        
+        jsStopwatch.stop();
+        debugPrint(
+            'JavaScript execution completed in ${jsStopwatch.elapsedMilliseconds}ms');
       }
     } catch (e) {
       debugPrint('处理Web3消息失败: $e');
 
       // 发送错误响应
-      final data = jsonDecode(message);
-      final requestId = data['id']?.toString();
-      if (requestId != null) {
-        await _web3ProviderService.sendResponse(
-          requestId,
-          null,
-          e.toString(),
-          -32603,
+      try {
+        final data = jsonDecode(message);
+        final errorResponse = {
+          'id': data['id'],
+          'jsonrpc': '2.0',
+          'error': {
+            'code': -32603,
+            'message': e.toString(),
+          },
+        };
+        await _webViewController.runJavaScript(
+          'window.postMessage(${jsonEncode(errorResponse)}, "*");',
         );
+      } catch (parseError) {
+        debugPrint('解析错误消息失败: $parseError');
       }
     }
   }
 
-  /// 检查收藏状态
-  void _checkFavoriteStatus() {
-    if (_currentOrigin != null) {
-      setState(() {
-        _isFavorite = _connectionService.isFavorite(_currentOrigin!);
-      });
+  /// 显示签名确认对话框
+  Future<bool> _showSignatureConfirmationDialog(
+      Map<String, dynamic> requestData) async {
+    final method = requestData['method'] as String;
+    final params = requestData['params'] as List<dynamic>? ?? [];
+
+    String title = '签名请求';
+    String content = '';
+
+    switch (method) {
+      case 'personal_sign':
+        title = '个人消息签名';
+        if (params.isNotEmpty) {
+          final message = params[0] as String;
+          // 尝试解码十六进制消息
+          String decodedMessage = message;
+          if (message.startsWith('0x')) {
+            try {
+              final bytes = List<int>.generate(
+                (message.length - 2) ~/ 2,
+                (i) => int.parse(message.substring(2 + i * 2, 4 + i * 2),
+                    radix: 16),
+              );
+              decodedMessage = String.fromCharCodes(bytes);
+            } catch (e) {
+              decodedMessage = message;
+            }
+          }
+          content = '消息内容：\n$decodedMessage';
+        }
+        break;
+      case 'eth_signTypedData':
+      case 'eth_signTypedData_v4':
+        title = '结构化数据签名';
+        content = '请求签名结构化数据';
+        break;
+      default:
+        title = '签名请求';
+        content = '请求进行数字签名';
     }
+
+    return await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF1A1A2E),
+              title: Text(
+                title,
+                style: const TextStyle(color: Colors.white),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '来自：${_currentOrigin ?? 'Unknown'}',
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2A2A3E),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      content,
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                      maxLines: 5,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    '⚠️ 请仔细确认签名内容，签名后无法撤销',
+                    style: TextStyle(color: Colors.orange, fontSize: 12),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('拒绝', style: TextStyle(color: Colors.grey)),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    // 显示密码验证对话框
+                    final password = await _showPasswordDialog();
+                    if (password != null) {
+                      Navigator.of(context).pop(true);
+                    } else {
+                      Navigator.of(context).pop(false);
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                  ),
+                  child:
+                      const Text('确认签名', style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
   }
 
+  /// 显示密码验证对话框
+  Future<String?> _showPasswordDialog() async {
+    final passwordController = TextEditingController();
+    bool obscureText = true;
+    String? errorText;
+
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          backgroundColor: const Color(0xFF1A1A2E),
+          title: const Text(
+            '输入钱包密码',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '请输入钱包密码以确认签名',
+                style: TextStyle(color: Colors.white70),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: passwordController,
+                obscureText: obscureText,
+                style: const TextStyle(color: Colors.white),
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(6),
+                ],
+                decoration: InputDecoration(
+                  hintText: '输入6位数字密码',
+                  hintStyle: const TextStyle(color: Colors.white54),
+                  errorText: errorText,
+                  errorStyle: const TextStyle(color: Colors.red),
+                  filled: true,
+                  fillColor: const Color(0xFF2A2A3E),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide.none,
+                  ),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      obscureText ? Icons.visibility : Icons.visibility_off,
+                      color: Colors.white54,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        obscureText = !obscureText;
+                      });
+                    },
+                  ),
+                ),
+                onChanged: (value) {
+                  // 清除错误提示
+                  if (errorText != null) {
+                    setState(() {
+                      errorText = null;
+                    });
+                  }
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, null),
+              child: const Text('取消', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final password = passwordController.text;
+
+                // 验证密码长度
+                if (password.isEmpty) {
+                  setState(() {
+                    errorText = '请输入密码';
+                  });
+                  return;
+                }
+
+                if (password.length != 6) {
+                  setState(() {
+                    errorText = '密码必须是6位数字';
+                  });
+                  return;
+                }
+
+                // 验证密码是否正确
+                try {
+                  final currentWallet = _walletProvider.currentWallet;
+                  if (currentWallet == null) {
+                    setState(() {
+                      errorText = '未找到当前钱包';
+                    });
+                    return;
+                  }
+
+                  final isValid = await _walletProvider.verifyPasswordForWallet(
+                      currentWallet.id, password);
+                  if (isValid) {
+                    Navigator.pop(context, password);
+                  } else {
+                    setState(() {
+                      errorText = '密码错误，请重试';
+                    });
+                  }
+                } catch (e) {
+                  setState(() {
+                    errorText = '密码验证失败';
+                  });
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+              ),
+              child: const Text('确认', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   /// 导航到URL
   void _navigateToUrl(String url) {
@@ -286,10 +641,99 @@ class _DAppBrowserScreenState extends State<DAppBrowserScreen> {
       final uri = Uri.parse(url);
       final origin = '${uri.scheme}://${uri.host}';
 
+      debugPrint('=== 准备连接DApp ===');
+      debugPrint('URL: $url');
+      debugPrint('Origin: $origin');
+
       // 检查是否已经连接
-      if (_connectionService.isConnected(origin)) {
-        // 已连接，直接导航
-        _actuallyNavigateToUrl(url);
+      final isAlreadyConnected = _connectionService.isConnected(origin);
+      debugPrint('已连接状态: $isAlreadyConnected');
+
+      // 注释掉自动导航逻辑，始终显示连接对话框让用户确认
+      // if (isAlreadyConnected) {
+      //   // 已连接，直接导航
+      //   debugPrint('DApp已连接，直接导航');
+      //   _actuallyNavigateToUrl(url);
+      //   return;
+      // }
+
+      // 检查钱包状态
+      final currentNetwork = _walletProvider.currentNetwork;
+      final currentAddress = _walletProvider.getCurrentNetworkAddress();
+      final hasWallets = _walletProvider.wallets.isNotEmpty;
+
+      debugPrint('钱包状态检查:');
+      debugPrint('  - 钱包数量: ${_walletProvider.wallets.length}');
+      debugPrint('  - 当前钱包: ${_walletProvider.currentWallet?.id}');
+      debugPrint('  - 当前网络: ${currentNetwork?.name}');
+      debugPrint('  - 当前地址: $currentAddress');
+      debugPrint(
+          '  - 支持的网络: ${_walletProvider.supportedNetworks.map((n) => n.name).join(', ')}');
+
+      if (!hasWallets) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('请先创建或导入钱包'),
+              backgroundColor: Colors.red,
+              action: SnackBarAction(
+                label: '去创建',
+                onPressed: () {
+                  Navigator.of(context).pushNamed('/welcome');
+                },
+              ),
+            ),
+          );
+        }
+        return;
+      }
+
+      if (currentNetwork == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('请先在设置中选择一个网络'),
+              backgroundColor: Colors.orange,
+              action: SnackBarAction(
+                label: '去设置',
+                onPressed: () {
+                  Navigator.of(context).pushNamed('/settings');
+                },
+              ),
+            ),
+          );
+        }
+        return;
+      }
+
+      if (currentAddress == null || currentAddress.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('当前网络(${currentNetwork.name})没有可用地址，请检查钱包配置'),
+              backgroundColor: Colors.red,
+              action: SnackBarAction(
+                label: '去设置',
+                onPressed: () {
+                  Navigator.of(context).pushNamed('/settings');
+                },
+              ),
+            ),
+          );
+        }
+        return;
+      }
+
+      // 验证地址格式
+      if (!RegExp(r'^0x[a-fA-F0-9]{40}$').hasMatch(currentAddress)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('地址格式无效: $currentAddress'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
         return;
       }
 
@@ -300,34 +744,96 @@ class _DAppBrowserScreenState extends State<DAppBrowserScreen> {
         builder: (context) => _buildConnectionDialog(url, origin),
       );
 
+      debugPrint('用户连接选择: $result');
+
       if (result == true) {
-        // 用户确认连接，执行连接并导航
-        await _connectAndNavigate(url, origin);
+        // 用户确认连接
+        if (isAlreadyConnected) {
+          // 如果已经连接，直接导航
+          debugPrint('用户确认访问已连接的DApp');
+          _actuallyNavigateToUrl(url);
+        } else {
+          // 如果未连接，执行连接逻辑
+          debugPrint('用户确认连接新DApp');
+          await _performDirectConnection(url, origin);
+        }
       } else {
         // 用户取消，清除待访问URL
+        debugPrint('用户取消连接');
         _pendingUrl = null;
       }
     } catch (e) {
       debugPrint('显示连接对话框失败: $e');
+      debugPrint('错误堆栈: ${StackTrace.current}');
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('无法解析URL: $e'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('连接准备失败',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text(e.toString(), style: const TextStyle(fontSize: 12)),
+              ],
+            ),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
           ),
         );
       }
     }
   }
 
-  /// 连接并导航到URL
-  Future<void> _connectAndNavigate(String url, String origin) async {
+  /// 直接执行连接（内部确认，无需外部跳转）
+  Future<void> _performDirectConnection(String url, String origin) async {
     try {
+      // 显示连接中的加载状态
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                ),
+                SizedBox(width: 12),
+                Text('正在连接...'),
+              ],
+            ),
+            duration: Duration(seconds: 30),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+
       final currentNetwork = _walletProvider.currentNetwork;
       final currentAddress = _walletProvider.getCurrentNetworkAddress();
 
-      if (currentNetwork == null || currentAddress == null) {
-        throw Exception('请先选择网络和地址');
+      debugPrint('=== DApp连接调试信息 ===');
+      debugPrint('当前网络: ${currentNetwork?.name} (${currentNetwork?.id})');
+      debugPrint('当前地址: $currentAddress');
+      debugPrint('目标URL: $url');
+      debugPrint('目标Origin: $origin');
+
+      if (currentNetwork == null) {
+        throw Exception('未选择网络，请先在设置中选择一个网络');
+      }
+
+      if (currentAddress == null) {
+        throw Exception('未找到当前网络的地址，请检查钱包配置');
+      }
+
+      // 验证地址格式
+      if (!RegExp(r'^0x[a-fA-F0-9]{40}$').hasMatch(currentAddress)) {
+        throw Exception('地址格式无效: $currentAddress');
       }
 
       // 创建连接请求
@@ -344,35 +850,74 @@ class _DAppBrowserScreenState extends State<DAppBrowserScreen> {
         ],
       );
 
-      // 连接DApp
+      debugPrint('创建连接请求: ${request.origin}');
+      debugPrint('请求的地址: ${request.requestedAddresses}');
+      debugPrint(
+          '请求的权限: ${request.requestedPermissions.map((p) => p.toString()).join(', ')}');
+
+      // 直接连接DApp（内部处理，无需外部确认）
+      debugPrint('开始内部连接流程...');
       final success = await _connectionService.connectDApp(request);
 
+      debugPrint('连接结果: $success');
+
       if (success) {
+        // 更新连接状态
         setState(() {
           _isConnected = true;
         });
 
-        // 连接成功，导航到URL
+        // 验证连接状态
+        final connection = _connectionService.getConnection(origin);
+        debugPrint('连接验证: ${connection?.status}');
+        debugPrint('连接的地址: ${connection?.connectedAddresses}');
+
+        // 立即导航到URL，无需等待外部确认
+        debugPrint('连接成功，立即导航到URL...');
         _actuallyNavigateToUrl(url);
 
+        // 注入Web3 Provider
+        await Future.delayed(const Duration(milliseconds: 500));
+        await _injectWeb3Provider();
+
         if (mounted) {
+          ScaffoldMessenger.of(context).clearSnackBars();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('已连接到 ${currentNetwork.name}'),
+              content: Text('已成功连接到 ${currentNetwork.name}'),
               backgroundColor: Colors.green,
+              duration: const Duration(seconds: 2),
             ),
           );
         }
       } else {
-        throw Exception('连接失败');
+        throw Exception('DApp连接服务返回失败');
       }
     } catch (e) {
-      debugPrint('连接失败: $e');
+      debugPrint('连接失败详细信息: $e');
+      debugPrint('错误堆栈: ${StackTrace.current}');
+
       if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('连接失败: $e'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('连接失败',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text(e.toString(), style: const TextStyle(fontSize: 12)),
+              ],
+            ),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: '重试',
+              textColor: Colors.white,
+              onPressed: () => _performDirectConnection(url, origin),
+            ),
           ),
         );
       }
@@ -447,6 +992,7 @@ class _DAppBrowserScreenState extends State<DAppBrowserScreen> {
   }
 
   /// 分享当前页面
+  // ignore: unused_element
   Future<void> _sharePage() async {
     if (_currentOrigin != null && _pageTitle.isNotEmpty) {
       try {
@@ -561,6 +1107,7 @@ class _DAppBrowserScreenState extends State<DAppBrowserScreen> {
   }
 
   /// 显示连接对话框
+  // ignore: unused_element
   Future<void> _showConnectionDialog() async {
     if (_currentOrigin == null) return;
 
@@ -632,6 +1179,7 @@ class _DAppBrowserScreenState extends State<DAppBrowserScreen> {
   }
 
   /// 断开连接
+  // ignore: unused_element
   Future<void> _disconnectDApp() async {
     if (_currentOrigin == null) return;
 
@@ -1158,15 +1706,17 @@ class _DAppBrowserScreenState extends State<DAppBrowserScreen> {
         final currentAddress = walletProvider.getCurrentNetworkAddress();
         final displayOrigin = origin ?? _currentOrigin ?? '';
         final displayUrl = url ?? _pendingUrl ?? '';
+        final isAlreadyConnected =
+            _connectionService.isConnected(displayOrigin);
 
         return AlertDialog(
           backgroundColor: const Color(0xFF2A2D3A),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          title: const Text(
-            '是否允许链接此DApp',
-            style: TextStyle(color: Colors.white, fontSize: 18),
+          title: Text(
+            isAlreadyConnected ? '重新连接DApp' : '连接DApp',
+            style: const TextStyle(color: Colors.white, fontSize: 18),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1224,6 +1774,40 @@ class _DAppBrowserScreenState extends State<DAppBrowserScreen> {
                 ),
               ),
               const SizedBox(height: 16),
+
+              // 连接状态显示
+              if (isAlreadyConnected)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Colors.green.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.check_circle,
+                        color: Colors.green,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '此DApp已连接到您的钱包',
+                          style: TextStyle(
+                            color: Colors.green,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              if (isAlreadyConnected) const SizedBox(height: 16),
 
               // 前往地址提示
               Container(
@@ -1333,81 +1917,90 @@ class _DAppBrowserScreenState extends State<DAppBrowserScreen> {
               const SizedBox(height: 16),
 
               // 钱包地址
-              const Text(
-                '钱包',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 8),
-              InkWell(
-                onTap: () async {
-                  // 显示地址选择器
-                  final selectedAddress =
-                      await _showAddressSelector(context, walletProvider);
-                  if (selectedAddress != null) {
-                    walletProvider.setSelectedAddress(selectedAddress);
-                  }
-                },
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1A1B23),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: const Color(0xFF6366F1).withValues(alpha: 0.3),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    '钱包地址',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF6366F1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.account_balance_wallet,
-                          color: Colors.white,
-                          size: 18,
-                        ),
+                  TextButton(
+                    onPressed: () async {
+                      // 显示地址选择器
+                      final selectedAddress =
+                          await _showAddressSelector(context, walletProvider);
+                      if (selectedAddress != null) {
+                        walletProvider.setSelectedAddress(selectedAddress);
+                      }
+                    },
+                    child: const Text(
+                      '选择其他地址',
+                      style: TextStyle(
+                        color: Color(0xFF6366F1),
+                        fontSize: 12,
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              '主钱包',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1A1B23),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: const Color(0xFF6366F1).withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF6366F1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.account_balance_wallet,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            walletProvider.currentWallet
+                                    ?.addressNames[currentAddress] ??
+                                '主钱包',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          if (currentAddress != null)
+                            Text(
+                              '${currentAddress.substring(0, 6)}...${currentAddress.substring(currentAddress.length - 4)}',
+                              style: const TextStyle(
+                                color: Colors.white54,
+                                fontSize: 12,
                               ),
                             ),
-                            const SizedBox(height: 4),
-                            if (currentAddress != null)
-                              Text(
-                                '${currentAddress.substring(0, 6)}...${currentAddress.substring(currentAddress.length - 4)}',
-                                style: const TextStyle(
-                                  color: Colors.white54,
-                                  fontSize: 12,
-                                ),
-                              ),
-                          ],
-                        ),
+                        ],
                       ),
-                      const Icon(
-                        Icons.arrow_drop_down,
-                        color: Colors.white54,
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -1434,9 +2027,9 @@ class _DAppBrowserScreenState extends State<DAppBrowserScreen> {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              child: const Text(
-                '链接',
-                style: TextStyle(
+              child: Text(
+                isAlreadyConnected ? '继续访问' : '连接',
+                style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w500,
                 ),
@@ -1446,27 +2039,6 @@ class _DAppBrowserScreenState extends State<DAppBrowserScreen> {
         );
       },
     );
-  }
-
-  /// 处理菜单操作
-  void _handleMenuAction(String action) {
-    switch (action) {
-      case 'connect':
-        _showConnectionDialog();
-        break;
-      case 'disconnect':
-        _disconnectDApp();
-        break;
-      case 'refresh':
-        _refreshPage();
-        break;
-      case 'share':
-        _sharePage();
-        break;
-      case 'info':
-        _showPageInfo();
-        break;
-    }
   }
 
   /// 显示网络选择器

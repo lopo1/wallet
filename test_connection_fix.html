@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DApp连接测试</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        button { padding: 10px 20px; margin: 10px; font-size: 16px; }
+        .result { margin: 10px 0; padding: 10px; background: #f0f0f0; }
+        .error { background: #ffebee; color: #c62828; }
+        .success { background: #e8f5e8; color: #2e7d32; }
+    </style>
+</head>
+<body>
+    <h1>DApp连接测试页面</h1>
+    
+    <div>
+        <button onclick="checkProvider()">检查Provider</button>
+        <button onclick="connectWallet()">连接钱包</button>
+        <button onclick="getAccounts()">获取账户</button>
+        <button onclick="getChainId()">获取链ID</button>
+    </div>
+    
+    <div id="results"></div>
+
+    <script>
+        function log(message, isError = false) {
+            const div = document.createElement('div');
+            div.className = 'result ' + (isError ? 'error' : 'success');
+            div.textContent = new Date().toLocaleTimeString() + ': ' + message;
+            document.getElementById('results').appendChild(div);
+            console.log(message);
+        }
+
+        function checkProvider() {
+            if (typeof window.ethereum !== 'undefined') {
+                log('✅ Ethereum provider found');
+                log('Provider info: ' + JSON.stringify({
+                    isMetaMask: window.ethereum.isMetaMask,
+                    isHarbor: window.ethereum.isHarbor,
+                    isFlutterWallet: window.ethereum.isFlutterWallet,
+                    chainId: window.ethereum.chainId,
+                    selectedAddress: window.ethereum.selectedAddress
+                }));
+            } else {
+                log('❌ No Ethereum provider found', true);
+            }
+        }
+
+        async function connectWallet() {
+            try {
+                log('🔄 Requesting wallet connection...');
+                const accounts = await window.ethereum.request({ 
+                    method: 'eth_requestAccounts' 
+                });
+                log('✅ Connected! Accounts: ' + JSON.stringify(accounts));
+            } catch (error) {
+                log('❌ Connection failed: ' + error.message, true);
+            }
+        }
+
+        async function getAccounts() {
+            try {
+                const accounts = await window.ethereum.request({ 
+                    method: 'eth_accounts' 
+                });
+                log('✅ Accounts: ' + JSON.stringify(accounts));
+            } catch (error) {
+                log('❌ Get accounts failed: ' + error.message, true);
+            }
+        }
+
+        async function getChainId() {
+            try {
+                const chainId = await window.ethereum.request({ 
+                    method: 'eth_chainId' 
+                });
+                log('✅ Chain ID: ' + chainId);
+            } catch (error) {
+                log('❌ Get chain ID failed: ' + error.message, true);
+            }
+        }
+
+        // 页面加载时自动检查
+        window.addEventListener('load', () => {
+            setTimeout(checkProvider, 1000);
+        });
+    </script>
+</body>
+</html>

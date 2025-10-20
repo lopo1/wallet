@@ -13,7 +13,15 @@ enum Web3Method {
   walletSwitchEthereumChain('wallet_switchEthereumChain'),
   walletAddEthereumChain('wallet_addEthereumChain'),
   walletWatchAsset('wallet_watchAsset'),
-  walletRevokePermissions('wallet_revokePermissions');
+  walletRevokePermissions('wallet_revokePermissions'),
+  walletRequestPermissions('wallet_requestPermissions'),
+  walletGetCapabilities('wallet_getCapabilities'),
+  ethBlockNumber('eth_blockNumber'),
+  ethGetBalance('eth_getBalance'),
+  ethCall('eth_call'),
+  ethEstimateGas('eth_estimateGas'),
+  ethGasPrice('eth_gasPrice'),
+  ethGetTransactionCount('eth_getTransactionCount');
 
   const Web3Method(this.methodName);
 
@@ -35,6 +43,13 @@ enum Web3Method {
       case Web3Method.ethAccounts:
       case Web3Method.ethChainId:
       case Web3Method.netVersion:
+      case Web3Method.walletGetCapabilities:
+      case Web3Method.ethBlockNumber:
+      case Web3Method.ethGetBalance:
+      case Web3Method.ethCall:
+      case Web3Method.ethEstimateGas:
+      case Web3Method.ethGasPrice:
+      case Web3Method.ethGetTransactionCount:
         return true;
       default:
         return false;
@@ -55,6 +70,7 @@ enum Web3Method {
       case Web3Method.walletAddEthereumChain:
       case Web3Method.walletWatchAsset:
       case Web3Method.walletRevokePermissions:
+      case Web3Method.walletRequestPermissions:
         return true;
       default:
         return false;
@@ -210,6 +226,8 @@ class Web3Request {
         return '添加网络';
       case Web3Method.walletWatchAsset:
         return '添加代币';
+      case Web3Method.walletRequestPermissions:
+        return '请求权限';
       default:
         return method.methodName;
     }

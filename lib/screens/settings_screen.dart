@@ -79,8 +79,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Navigator.pushReplacementNamed(context, '/swap');
                 break;
               case 2:
-                Navigator.pushReplacementNamed(context, '/dapp-browser');
-                break;
+              Navigator.pushReplacementNamed(context, '/dapp-discovery');
+              break;
               case 3:
                 // current page
                 break;
