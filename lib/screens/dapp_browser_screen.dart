@@ -1308,25 +1308,7 @@ class _DAppBrowserScreenState extends State<DAppBrowserScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 20),
-          const Text(
-            '探索DApp',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            '输入网址或搜索DApp应用',
-            style: TextStyle(
-              color: Colors.white54,
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 24),
-
+          const SizedBox(height: 5),
           // 如果有输入且是有效URL，显示"前往网址"选项
           if (hasInput && _isValidUrl(searchQuery)) ...[
             Container(

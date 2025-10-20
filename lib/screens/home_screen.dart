@@ -16,6 +16,7 @@ import '../widgets/overlaid_token_icon.dart';
 
 import '../widgets/blockchain_address_list.dart';
 import '../models/blockchain_address.dart';
+import 'favorites_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -337,6 +338,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         break;
       case 'refresh':
         _refreshBalances();
+        break;
+      case 'favorites':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const FavoritesScreen(),
+          ),
+        );
         break;
       case 'add_token':
         Navigator.pushNamed(context, '/add_token');

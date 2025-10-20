@@ -387,9 +387,22 @@ class DAppConnectionService extends ChangeNotifier {
         _dappHistory.removeRange(50, _dappHistory.length);
       }
       await _saveHistory();
+      notifyListeners();
       debugPrint('Added DApp to history: $origin');
     } catch (e) {
       debugPrint('Failed to add DApp to history: $e');
+    }
+  }
+
+  /// 从访问历史中移除
+  Future<void> removeFromHistory(String origin) async {
+    try {
+      _dappHistory.remove(origin);
+      await _saveHistory();
+      notifyListeners();
+      debugPrint('Removed DApp from history: $origin');
+    } catch (e) {
+      debugPrint('Failed to remove DApp from history: $e');
     }
   }
 
