@@ -34,6 +34,9 @@ class PrivateKeyService {
       case 'solana':
       case 'sol':
         return await _generateSolanaPrivateKey(mnemonic, index);
+      case 'tron':
+      case 'trx':
+        return await _generateTronPrivateKey(mnemonic, index);
       default:
         throw UnsupportedError('Network $network is not supported');
     }
@@ -93,6 +96,20 @@ class PrivateKeyService {
   /// Generate Polygon private key (same as Ethereum)
   static Future<String> _generatePolygonPrivateKey(String mnemonic, int index) async {
     return await _generateEthereumPrivateKey(mnemonic, index);
+  }
+
+  /// Generate TRON private key (secp256k1)
+  static Future<String> _generateTronPrivateKey(String mnemonic, int index) async {
+    final seed = bip39.mnemonicToSeed(mnemonic);
+    final root = bip32.BIP32.fromSeed(seed);
+    final child = root.derivePath(DerivationPaths.tronWithIndex(index));
+    final priv = child.privateKey;
+    if (priv == null) {
+      throw Exception('Failed to derive TRON private key');
+    }
+    // Return hex with 0x prefix for consistency
+    final hexStr = priv.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    return '0x$hexStr';
   }
 
   /// Generate Solana private key
@@ -195,6 +212,7 @@ class PrivateKeyService {
       'binance',
       'polygon',
       'solana',
+      'tron',
     ];
   }
 
@@ -204,6 +222,7 @@ class PrivateKeyService {
       case 'ethereum':
       case 'binance':
       case 'polygon':
+      case 'tron':
         return _isValidEthereumPrivateKey(privateKey);
       case 'bitcoin':
         return _isValidBitcoinPrivateKey(privateKey);

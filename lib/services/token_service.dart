@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
-import '../models/token.dart';
+import '../models/token_model.dart';
 
 class TokenService {
   static const String _etherscanApiKey = 'YourEtherscanApiKey'; // 替换为实际的API密钥
@@ -48,12 +48,13 @@ class TokenService {
             data['result'].isNotEmpty) {
           final tokenData = data['result'][0];
           return Token(
-            address: contractAddress.toLowerCase(),
+            id: 'ethereum-${contractAddress.toLowerCase()}',
+            contractAddress: contractAddress.toLowerCase(),
             name: tokenData['tokenName'] ?? '',
             symbol: tokenData['symbol'] ?? '',
             decimals: int.tryParse(tokenData['divisor'] ?? '18') ?? 18,
             networkId: 'ethereum',
-            logoUrl: _getTokenLogoUrl(contractAddress),
+            iconUrl: _getTokenLogoUrl(contractAddress),
           );
         }
       }
@@ -85,12 +86,13 @@ class TokenService {
             data['result'].isNotEmpty) {
           final tokenData = data['result'][0];
           return Token(
-            address: contractAddress.toLowerCase(),
+            id: 'polygon-${contractAddress.toLowerCase()}',
+            contractAddress: contractAddress.toLowerCase(),
             name: tokenData['tokenName'] ?? '',
             symbol: tokenData['symbol'] ?? '',
             decimals: int.tryParse(tokenData['divisor'] ?? '18') ?? 18,
             networkId: 'polygon',
-            logoUrl: _getTokenLogoUrl(contractAddress),
+            iconUrl: _getTokenLogoUrl(contractAddress),
           );
         }
       }
@@ -121,12 +123,13 @@ class TokenService {
             data['result'].isNotEmpty) {
           final tokenData = data['result'][0];
           return Token(
-            address: contractAddress.toLowerCase(),
+            id: 'bsc-${contractAddress.toLowerCase()}',
+            contractAddress: contractAddress.toLowerCase(),
             name: tokenData['tokenName'] ?? '',
             symbol: tokenData['symbol'] ?? '',
             decimals: int.tryParse(tokenData['divisor'] ?? '18') ?? 18,
             networkId: 'bsc',
-            logoUrl: _getTokenLogoUrl(contractAddress),
+            iconUrl: _getTokenLogoUrl(contractAddress),
           );
         }
       }
@@ -145,7 +148,8 @@ class TokenService {
       // 这里可以实现直接调用合约的方法
       // 由于需要web3库，这里先返回一个基本的Token对象
       return Token(
-        address: contractAddress.toLowerCase(),
+        id: '$networkId-${contractAddress.toLowerCase()}',
+        contractAddress: contractAddress.toLowerCase(),
         name: 'Unknown Token',
         symbol: 'UNKNOWN',
         decimals: 18,
@@ -227,66 +231,73 @@ class TokenService {
       case 'ethereum':
         return [
           Token(
-            address: '0xA0b86a33E6441b8C4505E2E8b8F8b8B8B8B8B8B8',
+            id: 'ethereum-0xA0b86a33E6441b8C4505E2E8b8F8b8B8B8B8B8B8',
+            contractAddress: '0xA0b86a33E6441b8C4505E2E8b8F8b8B8B8B8B8B8',
             name: 'USD Coin',
             symbol: 'USDC',
             decimals: 6,
             networkId: 'ethereum',
-            logoUrl: 'https://cryptologos.cc/logos/usd-coin-usdc-logo.png',
+            iconUrl: 'https://cryptologos.cc/logos/usd-coin-usdc-logo.png',
           ),
           Token(
-            address: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
+            id: 'ethereum-0xdAC17F958D2ee523a2206206994597C13D831ec7',
+            contractAddress: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
             name: 'Tether USD',
             symbol: 'USDT',
             decimals: 6,
             networkId: 'ethereum',
-            logoUrl: 'https://cryptologos.cc/logos/tether-usdt-logo.png',
+            iconUrl: 'https://cryptologos.cc/logos/tether-usdt-logo.png',
           ),
           Token(
-            address: '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984',
+            id: 'ethereum-0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984',
+            contractAddress: '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984',
             name: 'Uniswap',
             symbol: 'UNI',
             decimals: 18,
             networkId: 'ethereum',
-            logoUrl: 'https://cryptologos.cc/logos/uniswap-uni-logo.png',
+            iconUrl: 'https://cryptologos.cc/logos/uniswap-uni-logo.png',
           ),
         ];
       case 'polygon':
         return [
           Token(
-            address: '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174',
+            id: 'polygon-0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174',
+            contractAddress: '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174',
             name: 'USD Coin',
             symbol: 'USDC',
             decimals: 6,
             networkId: 'polygon',
-            logoUrl: 'https://cryptologos.cc/logos/usd-coin-usdc-logo.png',
+            iconUrl: 'https://cryptologos.cc/logos/usd-coin-usdc-logo.png',
           ),
           Token(
-            address: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+            id: 'polygon-0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+            contractAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
             name: 'Tether USD',
             symbol: 'USDT',
             decimals: 6,
             networkId: 'polygon',
-            logoUrl: 'https://cryptologos.cc/logos/tether-usdt-logo.png',
+            iconUrl: 'https://cryptologos.cc/logos/tether-usdt-logo.png',
           ),
         ];
       case 'bsc':
         return [
           Token(
-            address: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
+            id: 'bsc-0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
+            contractAddress: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
             name: 'USD Coin',
             symbol: 'USDC',
             decimals: 18,
             networkId: 'bsc',
-            logoUrl: 'https://cryptologos.cc/logos/usd-coin-usdc-logo.png',
+            iconUrl: 'https://cryptologos.cc/logos/usd-coin-usdc-logo.png',
           ),
           Token(
-            address: '0x55d398326f99059fF775485246999027B3197955',
+            id: 'bsc-0x55d398326f99059fF775485246999027B3197955',
+            contractAddress: '0x55d398326f99059fF775485246999027B3197955',
             name: 'Tether USD',
             symbol: 'USDT',
             decimals: 18,
             networkId: 'bsc',
-            logoUrl: 'https://cryptologos.cc/logos/tether-usdt-logo.png',
+            iconUrl: 'https://cryptologos.cc/logos/tether-usdt-logo.png',
           ),
         ];
       default:

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
 import 'package:decimal/decimal.dart';
@@ -8,7 +9,12 @@ import '../utils/amount_utils.dart';
 import 'qr_scanner_screen.dart';
 
 class SendDetailScreen extends StatefulWidget {
-  const SendDetailScreen({super.key});
+  final Map<String, dynamic>? preselectedToken;
+
+  const SendDetailScreen({
+    super.key,
+    this.preselectedToken,
+  });
 
   @override
   State<SendDetailScreen> createState() => _SendDetailScreenState();
@@ -35,6 +41,7 @@ class _SendDetailScreenState extends State<SendDetailScreen>
   List<Map<String, String>> filteredContacts = [];
   bool isLoading = false;
   bool _gasFeeLocked = false; // Gas 费用锁定标志
+  Map<String, dynamic>? _selectedToken; // 选中的代币
 
   int _gasRefreshCountdown = 10; // 倒计时秒数
 
@@ -63,6 +70,7 @@ class _SendDetailScreenState extends State<SendDetailScreen>
         setState(() {
           network = args['network'] as Network?;
           address = args['address'] as String?;
+          _selectedToken = args['preselectedToken'] as Map<String, dynamic>?;
         });
         _loadInitialData();
       }
@@ -84,6 +92,15 @@ class _SendDetailScreenState extends State<SendDetailScreen>
   Future<void> _loadInitialData() async {
     if (network == null || address == null) return;
 
+    // 设置当前网络，确保 WalletProvider 使用正确的网络
+    final walletProvider = Provider.of<WalletProvider>(context, listen: false);
+    walletProvider.setCurrentNetwork(network!);
+
+    // 如果提供了地址，设置为选中的地址
+    if (address != null) {
+      walletProvider.setSelectedAddress(address!);
+    }
+
     await Future.wait([
       _loadRealBalance(),
       _loadGasFee(),
@@ -101,12 +118,36 @@ class _SendDetailScreenState extends State<SendDetailScreen>
       final walletProvider =
           Provider.of<WalletProvider>(context, listen: false);
 
-      // 使用统一的网络余额获取方法
-      final realBalance = await walletProvider.getNetworkBalance(network!.id);
+      double realBalance;
+
+      // 判断是否为 TRC20 代币
+      final isNative = _selectedToken?['isNative'] ?? true;
+      final isTRC20 = !isNative &&
+          _selectedToken?['networkId'] == 'tron' &&
+          _selectedToken?['contractAddress'] != null;
+
+      if (isTRC20) {
+        // 获取 TRC20 代币余额
+        final contractAddress = _selectedToken!['contractAddress'] as String;
+        final decimals = (_selectedToken!['decimals'] as int?) ?? 6;
+
+        debugPrint('=== 加载 TRC20 余额 ===');
+        debugPrint('合约地址: $contractAddress');
+        debugPrint('小数位: $decimals');
+
+        realBalance = await walletProvider.getTRC20Balance(
+          contractAddress: contractAddress,
+          decimals: decimals,
+        );
+      } else {
+        // 使用统一的网络余额获取方法
+        realBalance = await walletProvider.getNetworkBalance(network!.id);
+      }
 
       debugPrint('=== 加载余额 ===');
       debugPrint('网络: ${network!.id}');
       debugPrint('地址: $address');
+      debugPrint('代币类型: ${isTRC20 ? "TRC20" : "原生"}');
       debugPrint('获取到的余额: $realBalance');
 
       setState(() {
@@ -186,7 +227,7 @@ class _SendDetailScreenState extends State<SendDetailScreen>
 
   Future<void> _loadContacts() async {
     if (!mounted) return;
-    
+
     // 模拟联系人数据
     setState(() {
       contacts = [
@@ -203,7 +244,7 @@ class _SendDetailScreenState extends State<SendDetailScreen>
 
   void _filterContacts(String query) {
     if (!mounted) return;
-    
+
     setState(() {
       if (query.isEmpty) {
         filteredContacts = contacts;
@@ -404,14 +445,42 @@ class _SendDetailScreenState extends State<SendDetailScreen>
       final recipient = _recipientController.text.trim();
       final memo = _memoController.text.trim();
 
-      // 调用钱包提供者的发送交易方法
-      final txHash = await walletProvider.sendTransaction(
-        networkId: network!.id,
-        toAddress: recipient,
-        amount: amount,
-        password: password,
-        memo: memo.isNotEmpty ? memo : null,
-      );
+      String txHash;
+
+      // 判断是否为 TRC20 代币
+      final isNative = _selectedToken?['isNative'] ?? true;
+      final isTRC20 = !isNative &&
+          _selectedToken?['networkId'] == 'tron' &&
+          _selectedToken?['contractAddress'] != null;
+
+      if (isTRC20) {
+        // 发送 TRC20 代币
+        final contractAddress = _selectedToken!['contractAddress'] as String;
+        final decimals = (_selectedToken!['decimals'] as int?) ?? 6;
+
+        debugPrint('=== 发送 TRC20 代币 ===');
+        debugPrint('合约地址: $contractAddress');
+        debugPrint('接收地址: $recipient');
+        debugPrint('金额: $amount');
+        debugPrint('小数位: $decimals');
+
+        txHash = await walletProvider.sendTRC20Token(
+          contractAddress: contractAddress,
+          toAddress: recipient,
+          amount: amount,
+          decimals: decimals,
+          password: password,
+        );
+      } else {
+        // 发送原生代币
+        txHash = await walletProvider.sendTransaction(
+          networkId: network!.id,
+          toAddress: recipient,
+          amount: amount,
+          password: password,
+          memo: memo.isNotEmpty ? memo : null,
+        );
+      }
 
       if (!mounted) return;
 
@@ -444,7 +513,7 @@ class _SendDetailScreenState extends State<SendDetailScreen>
               ),
               const SizedBox(height: 16),
               Text(
-                '金额: $amount ${network!.symbol}',
+                '金额: $amount ${_selectedToken?['symbol'] as String? ?? network!.symbol}',
                 style: const TextStyle(color: Colors.white70),
               ),
               Text(
@@ -517,8 +586,13 @@ class _SendDetailScreenState extends State<SendDetailScreen>
                 obscureText: obscureText,
                 style: const TextStyle(color: Colors.white),
                 autofocus: true,
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(6),
+                ],
                 decoration: InputDecoration(
-                  hintText: '输入密码（至少6位）',
+                  hintText: '输入6位数字密码',
                   hintStyle: const TextStyle(color: Colors.white54),
                   errorText: errorText,
                   errorStyle: const TextStyle(color: Colors.red),
@@ -560,7 +634,7 @@ class _SendDetailScreenState extends State<SendDetailScreen>
               onPressed: () {
                 final password = passwordController.text;
 
-                // 验证密码长度
+                // 验证密码长度与格式
                 if (password.isEmpty) {
                   setState(() {
                     errorText = '请输入密码';
@@ -568,9 +642,9 @@ class _SendDetailScreenState extends State<SendDetailScreen>
                   return;
                 }
 
-                if (password.length < 6) {
+                if (password.length != 6) {
                   setState(() {
-                    errorText = '密码至少需要6位';
+                    errorText = '密码必须为6位数字';
                   });
                   return;
                 }
@@ -684,14 +758,17 @@ class _SendDetailScreenState extends State<SendDetailScreen>
                   Container(
                     width: 16,
                     height: 16,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF00D4AA),
+                    decoration: BoxDecoration(
+                      color: (_selectedToken?['color'] as Color?) ??
+                          const Color(0xFF00D4AA),
                       shape: BoxShape.circle,
                     ),
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    network?.symbol ?? 'USDT',
+                    _selectedToken?['symbol'] as String? ??
+                        network?.symbol ??
+                        'USDT',
                     style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 14,
@@ -780,7 +857,7 @@ class _SendDetailScreenState extends State<SendDetailScreen>
                     ),
                   ),
                   Text(
-                    '可用: ${balance.toString()} ${network?.symbol ?? 'USDT'}',
+                    '可用: ${balance.toString()} ${_selectedToken?['symbol'] as String? ?? network?.symbol ?? 'USDT'}',
                     style: const TextStyle(
                       color: Colors.white54,
                       fontSize: 14,
@@ -818,12 +895,14 @@ class _SendDetailScreenState extends State<SendDetailScreen>
                       },
                     ),
                     Padding(
-                      padding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
+                      padding:
+                          const EdgeInsets.only(left: 16, right: 16, bottom: 8),
                       child: Align(
                         alignment: Alignment.centerRight,
                         child: Builder(
                           builder: (context) {
-                            final amount = double.tryParse(_amountController.text) ?? 0.0;
+                            final amount =
+                                double.tryParse(_amountController.text) ?? 0.0;
                             final networkId = network?.id ?? '';
                             final priceUsd = _getTokenPrice(networkId);
                             final usdValue = amount * priceUsd;
@@ -844,7 +923,9 @@ class _SendDetailScreenState extends State<SendDetailScreen>
                       child: Row(
                         children: [
                           Text(
-                            network?.symbol ?? 'USDT',
+                            _selectedToken?['symbol'] as String? ??
+                                network?.symbol ??
+                                'USDT',
                             style: const TextStyle(
                               color: Colors.white54,
                               fontSize: 16,

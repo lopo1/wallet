@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../providers/wallet_provider.dart';
 import '../widgets/sidebar.dart';
-import '../models/token.dart';
+import '../models/token_model.dart';
 import '../services/storage_service.dart';
 import '../services/address_count_service.dart';
 import '../services/screen_lock_service.dart';
@@ -944,13 +944,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     try {
       final walletProvider =
           Provider.of<WalletProvider>(context, listen: false);
-      final networks = ['ethereum', 'polygon', 'bsc', 'bitcoin', 'solana'];
+      final networks = [
+        'ethereum',
+        'polygon',
+        'bsc',
+        'bitcoin',
+        'solana',
+        'tron'
+      ];
       final prices = {
         'ethereum': 2000.0,
         'polygon': 0.8,
         'bsc': 300.0,
         'bitcoin': 45000.0,
         'solana': 100.0,
+        'tron': 0.1,
       };
 
       double totalValue = 0.0;
@@ -965,6 +973,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           debugPrint('获取 $networkId 余额失败: $e');
           balances[networkId] = 0.0;
         }
+      }
+
+      // 加载 TRC20 代币余额（TRP）
+      try {
+        final trpBalance = await walletProvider.getTRC20Balance(
+          contractAddress: 'TVcNAxqqVb3WmeGZ6PLPz8SfoTwJAHXgXQ',
+          decimals: 6,
+        );
+        balances['trp-tron'] = trpBalance;
+        debugPrint('TRP 余额: $trpBalance');
+      } catch (e) {
+        debugPrint('获取 TRP 余额失败: $e');
+        balances['trp-tron'] = 0.0;
       }
 
       if (mounted) {
@@ -1062,6 +1083,29 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         'price': 100.0,
         'change24h': -2.18,
         'isNative': true,
+      },
+      {
+        'id': 'tron',
+        'name': 'Tron',
+        'symbol': 'TRX',
+        'icon': Icons.flash_on,
+        'color': const Color(0xFFC6312D),
+        'price': 0.1,
+        'change24h': 0.75,
+        'isNative': true,
+      },
+      {
+        'id': 'trp-tron',
+        'name': 'TRP Token',
+        'symbol': 'TRP',
+        'icon': Icons.token,
+        'color': const Color(0xFF00D4AA),
+        'price': 0.0,
+        'change24h': 0.0,
+        'isNative': false,
+        'networkId': 'tron',
+        'contractAddress': 'TVcNAxqqVb3WmeGZ6PLPz8SfoTwJAHXgXQ',
+        'decimals': 6,
       },
     ];
 

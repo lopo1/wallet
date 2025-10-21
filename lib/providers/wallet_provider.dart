@@ -20,7 +20,9 @@ import '../services/transaction_monitor_service.dart';
 import '../services/solana_transaction_monitor.dart';
 import '../constants/derivation_paths.dart';
 import '../constants/network_constants.dart';
-import '../models/token.dart';
+import '../models/token_model.dart';
+import '../services/tron_service.dart';
+import '../services/trc20_service.dart';
 
 class WalletProvider extends ChangeNotifier {
   List<Wallet> _wallets = [];
@@ -105,7 +107,8 @@ class WalletProvider extends ChangeNotifier {
         name: 'BSC',
         symbol: 'BNB',
         chainId: 56,
-        rpcUrl: 'https://bsc.blockpi.network/v1/rpc/77e2b602c1012feb83cfc51b592656b3dcfa231f',
+        rpcUrl:
+            'https://bsc.blockpi.network/v1/rpc/77e2b602c1012feb83cfc51b592656b3dcfa231f',
         rpcUrls: [
           'https://bsc.blockpi.network/v1/rpc/77e2b602c1012feb83cfc51b592656b3dcfa231f',
           'https://data-seed-prebsc-1-s3.bnbchain.org:8545',
@@ -147,6 +150,20 @@ class WalletProvider extends ChangeNotifier {
         ],
         explorerUrl: 'https://explorer.solana.com',
         color: 0xFF9945FF,
+      ),
+      // TRON (Nile 测试网)
+      Network(
+        id: 'tron',
+        name: 'Tron',
+        symbol: 'TRX',
+        chainId: 728,
+        rpcUrl: 'https://nile.trongrid.io',
+        rpcUrls: [
+          'https://nile.trongrid.io',
+          'https://api.nileex.io',
+        ],
+        explorerUrl: 'https://nile.tronscan.org',
+        color: 0xFFC6312D,
       ),
     ];
     // 设置默认网络为以太坊
@@ -562,13 +579,20 @@ class WalletProvider extends ChangeNotifier {
     if (_currentWallet == null || _currentNetwork == null) {
       return null;
     }
-    // 如果有选中的地址，返回选中的地址
-    if (_selectedAddress != null) {
+
+    // 获取当前网络的地址列表
+    final addressList = _currentWallet!.addresses[_currentNetwork!.id];
+    if (addressList == null || addressList.isEmpty) {
+      return null;
+    }
+
+    // 如果有选中的地址，检查它是否属于当前网络
+    if (_selectedAddress != null && addressList.contains(_selectedAddress)) {
       return _selectedAddress;
     }
+
     // 否则返回第一个地址
-    final addressList = _currentWallet!.addresses[_currentNetwork!.id];
-    return addressList?.isNotEmpty == true ? addressList!.first : null;
+    return addressList.first;
   }
 
   /// Get address for a specific network and wallet
@@ -618,10 +642,8 @@ class WalletProvider extends ChangeNotifier {
   }
 
   /// Update wallet addresses and indexes in storage
-  Future<void> updateWalletAddressesAndIndexes(
-      String walletId,
-      Map<String, List<String>> addresses,
-      Map<String, int> addressIndexes,
+  Future<void> updateWalletAddressesAndIndexes(String walletId,
+      Map<String, List<String>> addresses, Map<String, int> addressIndexes,
       [Map<String, String>? addressNames]) async {
     await _storageService.updateWalletAddressesAndIndexes(
         walletId, addresses, addressIndexes, addressNames);
@@ -891,6 +913,8 @@ class WalletProvider extends ChangeNotifier {
             return await _getBitcoinBalance(networkId, rpcUrl: rpcUrl);
           case 'solana':
             return await _getSolanaBalance(networkId, rpcUrl: rpcUrl);
+          case 'tron':
+            return await _getTronBalance(networkId, rpcUrl: rpcUrl);
           default:
             return 0.0;
         }
@@ -911,15 +935,23 @@ class WalletProvider extends ChangeNotifier {
       return await _retryOperation(() async {
         switch (networkId) {
           case 'ethereum':
-            return await _getEthereumBalanceForAddress(networkId, address, rpcUrl: rpcUrl);
+            return await _getEthereumBalanceForAddress(networkId, address,
+                rpcUrl: rpcUrl);
           case 'polygon':
-            return await _getPolygonBalanceForAddress(networkId, address, rpcUrl: rpcUrl);
+            return await _getPolygonBalanceForAddress(networkId, address,
+                rpcUrl: rpcUrl);
           case 'bsc':
-            return await _getBscBalanceForAddress(networkId, address, rpcUrl: rpcUrl);
+            return await _getBscBalanceForAddress(networkId, address,
+                rpcUrl: rpcUrl);
           case 'bitcoin':
-            return await _getBitcoinBalanceForAddress(networkId, address, rpcUrl: rpcUrl);
+            return await _getBitcoinBalanceForAddress(networkId, address,
+                rpcUrl: rpcUrl);
           case 'solana':
-            return await _getSolanaBalanceForAddress(networkId, address, rpcUrl: rpcUrl);
+            return await _getSolanaBalanceForAddress(networkId, address,
+                rpcUrl: rpcUrl);
+          case 'tron':
+            return await _getTronBalanceForAddress(networkId, address,
+                rpcUrl: rpcUrl);
           default:
             return 0.0;
         }
@@ -976,7 +1008,9 @@ class WalletProvider extends ChangeNotifier {
     }
   }
 
-  Future<double> _getEthereumBalanceForAddress(String networkId, String addressHex, {String? rpcUrl}) async {
+  Future<double> _getEthereumBalanceForAddress(
+      String networkId, String addressHex,
+      {String? rpcUrl}) async {
     try {
       final network = _currentNetwork?.id == networkId
           ? _currentNetwork!
@@ -1044,7 +1078,9 @@ class WalletProvider extends ChangeNotifier {
     }
   }
 
-  Future<double> _getPolygonBalanceForAddress(String networkId, String addressHex, {String? rpcUrl}) async {
+  Future<double> _getPolygonBalanceForAddress(
+      String networkId, String addressHex,
+      {String? rpcUrl}) async {
     try {
       final network = _currentNetwork?.id == networkId
           ? _currentNetwork!
@@ -1112,7 +1148,8 @@ class WalletProvider extends ChangeNotifier {
     }
   }
 
-  Future<double> _getBscBalanceForAddress(String networkId, String addressHex, {String? rpcUrl}) async {
+  Future<double> _getBscBalanceForAddress(String networkId, String addressHex,
+      {String? rpcUrl}) async {
     try {
       final network = _currentNetwork?.id == networkId
           ? _currentNetwork!
@@ -1200,7 +1237,8 @@ class WalletProvider extends ChangeNotifier {
     }
   }
 
-  Future<double> _getBitcoinBalanceForAddress(String networkId, String address, {String? rpcUrl}) async {
+  Future<double> _getBitcoinBalanceForAddress(String networkId, String address,
+      {String? rpcUrl}) async {
     try {
       final network = _currentNetwork?.id == networkId
           ? _currentNetwork!
@@ -1218,7 +1256,8 @@ class WalletProvider extends ChangeNotifier {
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        if (data['chain_stats'] != null && data['chain_stats']['funded_txo_sum'] != null) {
+        if (data['chain_stats'] != null &&
+            data['chain_stats']['funded_txo_sum'] != null) {
           final satoshi = data['chain_stats']['funded_txo_sum'] as int;
           final spent = data['chain_stats']['spent_txo_sum'] as int? ?? 0;
           final btcBalance = (satoshi - spent) / 100000000.0;
@@ -1273,7 +1312,8 @@ class WalletProvider extends ChangeNotifier {
     }
   }
 
-  Future<double> _getSolanaBalanceForAddress(String networkId, String address, {String? rpcUrl}) async {
+  Future<double> _getSolanaBalanceForAddress(String networkId, String address,
+      {String? rpcUrl}) async {
     try {
       final network = _currentNetwork?.id == networkId
           ? _currentNetwork!
@@ -1285,6 +1325,198 @@ class WalletProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('获取Solana余额(按地址)失败: $e');
       return 0.0;
+    }
+  }
+
+  /// 获取TRON余额
+  Future<double> _getTronBalance(String networkId, {String? rpcUrl}) async {
+    try {
+      final network = _currentNetwork?.id == networkId
+          ? _currentNetwork!
+          : _supportedNetworks.firstWhere((n) => n.id == networkId);
+
+      final effectiveRpcUrl = rpcUrl ?? network.rpcUrl;
+      final tronAddress =
+          _currentWallet?.addresses[networkId]?.isNotEmpty == true
+              ? _currentWallet!.addresses[networkId]!.first
+              : null;
+
+      if (tronAddress == null) {
+        debugPrint('TRON地址不存在');
+        return 0.0;
+      }
+
+      debugPrint('=== TRON余额查询请求 ===');
+      debugPrint('RPC URL: $effectiveRpcUrl');
+      debugPrint('钱包地址: $tronAddress');
+      debugPrint('请求方法: GET /v1/accounts/{address}');
+
+      final uri = Uri.parse('$effectiveRpcUrl/v1/accounts/$tronAddress');
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final accounts = data['data'];
+        if (accounts is List && accounts.isNotEmpty) {
+          final account = accounts[0] as Map<String, dynamic>;
+          final balanceSun = (account['balance'] ?? 0) as int;
+          final balanceTrx = balanceSun / NetworkConstants.tronDecimalFactor;
+          debugPrint('响应余额: $balanceTrx TRX');
+          debugPrint('========================');
+          return balanceTrx;
+        }
+      }
+
+      debugPrint('TRON余额查询失败: ${response.statusCode} ${response.body}');
+      return 0.0;
+    } catch (e) {
+      debugPrint('获取TRON余额失败: $e');
+      return 0.0;
+    }
+  }
+
+  /// 获取TRON余额（按地址）
+  Future<double> _getTronBalanceForAddress(String networkId, String address,
+      {String? rpcUrl}) async {
+    try {
+      final network = _currentNetwork?.id == networkId
+          ? _currentNetwork!
+          : _supportedNetworks.firstWhere((n) => n.id == networkId);
+      final effectiveRpcUrl = rpcUrl ?? network.rpcUrl;
+
+      debugPrint('=== TRON余额查询(按地址) ===');
+      debugPrint('RPC URL: $effectiveRpcUrl');
+      debugPrint('钱包地址: $address');
+
+      final uri = Uri.parse('$effectiveRpcUrl/v1/accounts/$address');
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final accounts = data['data'];
+        if (accounts is List && accounts.isNotEmpty) {
+          final account = accounts[0] as Map<String, dynamic>;
+          final balanceSun = (account['balance'] ?? 0) as int;
+          final balanceTrx = balanceSun / NetworkConstants.tronDecimalFactor;
+          return balanceTrx;
+        }
+      }
+      return 0.0;
+    } catch (e) {
+      debugPrint('获取TRON余额(按地址)失败: $e');
+      return 0.0;
+    }
+  }
+
+  /// 获取 TRC20 代币余额
+  Future<double> getTRC20Balance({
+    required String contractAddress,
+    required int decimals,
+    String? rpcUrl,
+  }) async {
+    try {
+      if (_currentWallet == null) return 0.0;
+
+      final network = _supportedNetworks.firstWhere((n) => n.id == 'tron');
+      final effectiveRpcUrl = rpcUrl ?? network.rpcUrl;
+
+      // 直接从 TRON 网络获取地址，而不是使用当前选中的网络地址
+      final tronAddresses = _currentWallet!.addresses['tron'];
+      if (tronAddresses == null || tronAddresses.isEmpty) {
+        debugPrint('当前钱包没有 TRON 地址');
+        return 0.0;
+      }
+
+      final ownerAddress = tronAddresses.first;
+      debugPrint('查询 TRC20 余额 - 地址: $ownerAddress, 合约: $contractAddress');
+
+      final balance = await TRC20Service.getBalance(
+        contractAddress: contractAddress,
+        ownerAddress: ownerAddress,
+        tronRpcBaseUrl: effectiveRpcUrl,
+        decimals: decimals,
+      );
+
+      debugPrint('TRC20 余额查询结果: $balance');
+      return balance;
+    } catch (e) {
+      debugPrint('获取 TRC20 余额失败: $e');
+      return 0.0;
+    }
+  }
+
+  /// 发送 TRC20 代币
+  Future<String> sendTRC20Token({
+    required String contractAddress,
+    required String toAddress,
+    required double amount,
+    required int decimals,
+    required String password,
+    String? rpcUrl,
+  }) async {
+    if (_currentWallet == null) {
+      throw Exception('没有当前钱包');
+    }
+
+    try {
+      final network = _supportedNetworks.firstWhere((n) => n.id == 'tron');
+      final effectiveRpcUrl = rpcUrl ?? network.rpcUrl;
+
+      // 获取助记词
+      final mnemonic = await getWalletMnemonic(_currentWallet!.id, password);
+      if (mnemonic == null) {
+        throw Exception('无法获取钱包助记词');
+      }
+
+      // 获取 TRON 网络的地址列表
+      final addresses = _currentWallet!.addresses['tron'];
+      if (addresses == null || addresses.isEmpty) {
+        throw Exception('当前钱包没有TRON地址');
+      }
+
+      // 确定使用哪个地址和索引
+      int addressIndex = 0;
+      String fromAddress = addresses.first;
+
+      // 如果选中的地址在 TRON 地址列表中，使用选中的地址
+      if (_selectedAddress != null && addresses.contains(_selectedAddress)) {
+        fromAddress = _selectedAddress!;
+        addressIndex = addresses.indexOf(_selectedAddress!);
+      }
+
+      debugPrint('=== TRC20 代币转账 ===');
+      debugPrint('合约地址: $contractAddress');
+      debugPrint('发送地址: $fromAddress');
+      debugPrint('接收地址: $toAddress');
+      debugPrint('金额: $amount');
+
+      // 清理地址
+      final cleanToAddress = toAddress.trim();
+      final cleanFromAddress = fromAddress.trim();
+
+      // 地址校验
+      if (!AddressService.validateAddress(cleanToAddress, 'tron')) {
+        throw Exception('收款地址格式无效: $cleanToAddress');
+      }
+
+      if (!AddressService.validateAddress(cleanFromAddress, 'tron')) {
+        throw Exception('当前钱包TRON地址格式无效: $cleanFromAddress');
+      }
+
+      // 发送 TRC20 转账
+      final txId = await TRC20Service.transfer(
+        mnemonic: mnemonic,
+        addressIndex: addressIndex,
+        contractAddress: contractAddress,
+        fromAddress: cleanFromAddress,
+        toAddress: cleanToAddress,
+        amount: amount,
+        decimals: decimals,
+        tronRpcBaseUrl: effectiveRpcUrl,
+      );
+
+      return txId;
+    } catch (e) {
+      debugPrint('TRC20 转账失败: $e');
+      rethrow;
     }
   }
 
@@ -1475,6 +1707,76 @@ class WalletProvider extends ChangeNotifier {
           rpcUrl: effectiveRpcUrl,
           password: password,
         );
+      case 'tron':
+        // 使用TRON测试网RPC发送交易（带地址校验与备用RPC重试）
+        final mnemonic = await getWalletMnemonic(_currentWallet!.id, password);
+        if (mnemonic == null) {
+          throw Exception('无法获取钱包助记词');
+        }
+
+        // 获取 TRON 网络的地址列表
+        final addresses = _currentWallet!.addresses[networkId];
+        if (addresses == null || addresses.isEmpty) {
+          throw Exception('当前钱包没有TRON地址');
+        }
+
+        // 确定使用哪个地址和索引
+        int addressIndex = 0;
+        String fromAddress = addresses.first;
+
+        // 如果选中的地址在 TRON 地址列表中，使用选中的地址
+        if (_selectedAddress != null && addresses.contains(_selectedAddress)) {
+          fromAddress = _selectedAddress!;
+          addressIndex = addresses.indexOf(_selectedAddress!);
+        }
+
+        debugPrint('=== TRON 交易发送 ===');
+        debugPrint('网络ID: $networkId');
+        debugPrint('发送地址: $fromAddress');
+        debugPrint('地址索引: $addressIndex');
+        debugPrint('TRON地址列表: $addresses');
+
+        // 清理地址（去除空格和换行符）
+        final cleanToAddress = toAddress.trim();
+        final cleanFromAddress = fromAddress.trim();
+
+        // 基本地址校验
+        debugPrint('验证收款地址: $cleanToAddress (长度: ${cleanToAddress.length})');
+        if (!AddressService.validateAddress(cleanToAddress, 'tron')) {
+          throw Exception('收款地址格式无效: $cleanToAddress');
+        }
+
+        debugPrint(
+            '验证发送地址: $cleanFromAddress (长度: ${cleanFromAddress.length})');
+        if (!AddressService.validateAddress(cleanFromAddress, 'tron')) {
+          throw Exception('当前钱包TRON地址格式无效: $cleanFromAddress');
+        }
+
+        // 组合候选RPC列表
+        final List<String> rpcCandidates = [
+          effectiveRpcUrl,
+          ...network.rpcUrls.where((u) => u != effectiveRpcUrl),
+        ];
+
+        Exception? lastError;
+        for (final baseUrl in rpcCandidates) {
+          try {
+            debugPrint('尝试使用TRON RPC: $baseUrl');
+            final txId = await TronService.sendTrxTransfer(
+              mnemonic: mnemonic,
+              addressIndex: addressIndex,
+              fromAddress: cleanFromAddress,
+              toAddress: cleanToAddress,
+              amountTRX: amount,
+              tronRpcBaseUrl: baseUrl,
+            );
+            return txId;
+          } catch (e) {
+            debugPrint('TRON发送失败，切换备用RPC: $e');
+            lastError = e is Exception ? e : Exception(e.toString());
+          }
+        }
+        throw lastError ?? Exception('TRON交易发送失败（所有RPC均不可用）');
       default:
         throw Exception('不支持的网络: $networkId');
     }
@@ -2113,7 +2415,8 @@ class WalletProvider extends ChangeNotifier {
     try {
       // 检查代币是否已存在
       final exists = _customTokens.any((t) =>
-          t.address.toLowerCase() == token.address.toLowerCase() &&
+          t.contractAddress.toLowerCase() ==
+              token.contractAddress.toLowerCase() &&
           t.networkId == token.networkId);
 
       if (exists) {
@@ -2140,7 +2443,8 @@ class WalletProvider extends ChangeNotifier {
   Future<bool> removeCustomToken(Token token) async {
     try {
       _customTokens.removeWhere((t) =>
-          t.address.toLowerCase() == token.address.toLowerCase() &&
+          t.contractAddress.toLowerCase() ==
+              token.contractAddress.toLowerCase() &&
           t.networkId == token.networkId);
 
       await _saveCustomTokens();
@@ -2214,16 +2518,16 @@ class WalletProvider extends ChangeNotifier {
     // 自定义代币
     final customAssets = _customTokens
         .map((token) => {
-              'id': token.address,
+              'id': token.contractAddress,
               'name': token.name,
               'symbol': token.symbol,
               'icon': Icons.token,
               'color': const Color(0xFF6366F1),
-              'price': token.price ?? 0.0,
+              'price': token.priceUsd ?? 0.0,
               'isNative': false,
               'networkId': token.networkId,
               'decimals': token.decimals,
-              'logoUrl': token.logoUrl,
+              'logoUrl': token.iconUrl,
               'token': token,
             })
         .toList();
@@ -2254,7 +2558,7 @@ class WalletProvider extends ChangeNotifier {
         if (token.networkId == _currentNetwork!.id) {
           // 这里可以调用TokenService来获取代币余额
           // final balance = await TokenService.getTokenBalance(
-          //   token.address,
+          //   token.contractAddress,
           //   walletAddress,
           //   token.networkId
           // );

@@ -170,6 +170,8 @@ class TokenWithNetworkIcon extends StatelessWidget {
         return Icons.currency_bitcoin;
       case 'solana':
         return Icons.wb_sunny;
+      case 'tron':
+        return Icons.flash_on;
       default:
         return Icons.network_check;
     }
@@ -188,6 +190,8 @@ class TokenWithNetworkIcon extends StatelessWidget {
         return const Color(0xFFF7931A);
       case 'solana':
         return const Color(0xFF9945FF);
+      case 'tron':
+        return const Color(0xFFC6312D);
       default:
         return const Color(0xFF6366F1);
     }

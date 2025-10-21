@@ -5,11 +5,13 @@ class NetworkConstants {
   static const int solanaDecimals = 9;
   static const int ethereumDecimals = 18;
   static const int bitcoinDecimals = 8;
+  static const int tronDecimals = 6;
   
   // 小数精度转换因子
   static const double solanaDecimalFactor = 1000000000.0; // 10^9
   static const double ethereumDecimalFactor = 1000000000000000000.0; // 10^18
   static const double bitcoinDecimalFactor = 100000000.0; // 10^8
+  static const double tronDecimalFactor = 1000000.0; // 10^6
   
   // 默认Gas限制
   static const int evmStandardTransferGasLimit = 21000;
@@ -21,6 +23,7 @@ class NetworkConstants {
   static const double bscBaseFee = 0.001;
   static const double polygonBaseFee = 0.001;
   static const double bitcoinBaseFee = 0.0001;
+  static const double tronBaseFee = 0.000001;
   
   // 费用波动范围
   static const double feeVariationRange = 0.01;
@@ -45,6 +48,7 @@ class NetworkConstants {
   static const String polygonNetworkId = 'polygon';
   static const String solanaNetworkId = 'solana';
   static const String bitcoinNetworkId = 'bitcoin';
+  static const String tronNetworkId = 'tron';
   
   // 单位转换辅助方法
   static double lamportsToSol(int lamports) {

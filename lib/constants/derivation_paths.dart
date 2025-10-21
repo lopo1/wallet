@@ -12,4 +12,9 @@ class DerivationPaths {
   static String bitcoinWithIndex(int index) {
     return "m/84'/0'/0'/0/$index"; // P2WPKH (bech32) derivation path
   }
+
+  // TRON uses SLIP-0044 coin type 195
+  static String tronWithIndex(int index) {
+    return "m/44'/195'/0'/0/$index";
+  }
 }

@@ -12,6 +12,7 @@ class Token {
   final double? priceUsd;
   final Color? color;
   final IconData? icon;
+  final double balance;
 
   const Token({
     required this.id,
@@ -25,7 +26,13 @@ class Token {
     this.priceUsd,
     this.color,
     this.icon,
+    this.balance = 0.0,
   });
+
+  // 兼容旧代码的别名
+  String get address => contractAddress;
+  String? get logoUrl => iconUrl;
+  double? get price => priceUsd;
 
   Token copyWith({
     String? id,
@@ -39,6 +46,7 @@ class Token {
     double? priceUsd,
     Color? color,
     IconData? icon,
+    double? balance,
   }) {
     return Token(
       id: id ?? this.id,
@@ -52,6 +60,7 @@ class Token {
       priceUsd: priceUsd ?? this.priceUsd,
       color: color ?? this.color,
       icon: icon ?? this.icon,
+      balance: balance ?? this.balance,
     );
   }
 
@@ -66,20 +75,26 @@ class Token {
       'decimals': decimals,
       'isNative': isNative,
       'priceUsd': priceUsd,
+      'balance': balance,
+      // 兼容旧格式
+      'address': contractAddress,
+      'logoUrl': iconUrl,
+      'price': priceUsd,
     };
   }
 
   factory Token.fromJson(Map<String, dynamic> json) {
     return Token(
-      id: json['id'],
-      symbol: json['symbol'],
-      name: json['name'],
-      iconUrl: json['iconUrl'],
-      networkId: json['networkId'],
-      contractAddress: json['contractAddress'],
-      decimals: json['decimals'],
+      id: json['id'] ?? json['address'] ?? '',
+      symbol: json['symbol'] ?? '',
+      name: json['name'] ?? '',
+      iconUrl: json['iconUrl'] ?? json['logoUrl'],
+      networkId: json['networkId'] ?? '',
+      contractAddress: json['contractAddress'] ?? json['address'] ?? '',
+      decimals: json['decimals'] ?? 18,
       isNative: json['isNative'] ?? false,
-      priceUsd: json['priceUsd']?.toDouble(),
+      priceUsd: json['priceUsd']?.toDouble() ?? json['price']?.toDouble(),
+      balance: json['balance']?.toDouble() ?? 0.0,
     );
   }
 
@@ -197,6 +212,30 @@ class TokenPresets {
     icon: Icons.attach_money,
   );
 
+  // TRON tokens
+  static final trx = Token(
+    id: 'tron',
+    symbol: 'TRX',
+    name: 'TRON',
+    networkId: 'tron',
+    contractAddress: 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb', // Native TRX
+    decimals: 6,
+    isNative: true,
+    color: const Color(0xFFEB0029),
+    icon: Icons.flash_on,
+  );
+
+  static final trp = Token(
+    id: 'trp-tron',
+    symbol: 'TRP',
+    name: 'TRP Token',
+    networkId: 'tron',
+    contractAddress: 'TVcNAxqqVb3WmeGZ6PLPz8SfoTwJAHXgXQ',
+    decimals: 6,
+    color: const Color(0xFF00D4AA),
+    icon: Icons.token,
+  );
+
   // 常用代币列表
   static List<Token> get commonTokens => [
         eth,
@@ -207,6 +246,8 @@ class TokenPresets {
         usdtSol,
         matic,
         usdtPolygon,
+        trx,
+        trp,
       ];
 
   // 按网络分组

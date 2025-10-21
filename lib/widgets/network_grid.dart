@@ -117,6 +117,8 @@ class NetworkGrid extends StatelessWidget {
         return Icons.currency_bitcoin;
       case 'solana':
         return Icons.wb_sunny;
+      case 'tron':
+        return Icons.flash_on;
       default:
         return Icons.network_check;
     }

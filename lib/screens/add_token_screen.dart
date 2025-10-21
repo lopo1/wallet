@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../models/token.dart';
+import '../models/token_model.dart';
 import '../services/token_service.dart';
 import '../services/storage_service.dart';
 import '../providers/wallet_provider.dart';
@@ -813,7 +813,8 @@ class _AddTokenScreenState extends State<AddTokenScreen>
     }
 
     final token = Token(
-      address: address.toLowerCase(),
+      id: '${_selectedNetworkId}-${address.toLowerCase()}',
+      contractAddress: address.toLowerCase(),
       name: name,
       symbol: symbol.toUpperCase(),
       decimals: decimals,
@@ -853,6 +854,8 @@ class _AddTokenScreenState extends State<AddTokenScreen>
         return Icons.currency_bitcoin;
       case 'solana':
         return Icons.wb_sunny;
+      case 'tron':
+        return Icons.flash_on;
       default:
         return Icons.network_check;
     }

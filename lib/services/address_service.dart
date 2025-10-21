@@ -31,6 +31,9 @@ class AddressService {
       case 'solana':
       case 'sol':
         return await _generateSolanaAddress(mnemonic, index);
+      case 'tron':
+      case 'trx':
+        return await _generateTronAddress(mnemonic, index);
       default:
         throw UnsupportedError('Network $network is not supported');
     }
@@ -108,6 +111,28 @@ class AddressService {
   static Future<String> _generatePolygonAddress(
       String mnemonic, int index) async {
     return await _generateEthereumAddress(mnemonic, index);
+  }
+
+  /// Generate TRON address (secp256k1, keccak, base58check with 0x41 prefix)
+  static Future<String> _generateTronAddress(String mnemonic, int index) async {
+    try {
+      final seed = bip39.mnemonicToSeed(mnemonic);
+      final root = bip32.BIP32.fromSeed(seed);
+      final child = root.derivePath(DerivationPaths.tronWithIndex(index));
+
+      final publicKey = child.publicKey; // compressed
+      final uncompressed = _decompressPublicKey(publicKey); // 0x04...
+      final pkHash = web3_crypto.keccak256(uncompressed.sublist(1));
+      final address20 = pkHash.sublist(12); // last 20 bytes
+
+      // Tron payload: 0x41 + 20-byte address
+      final payload = Uint8List.fromList([0x41, ...address20]);
+      final checksum = _doubleHash256(payload).sublist(0, 4);
+      final base58Address = _base58Encode([...payload, ...checksum]);
+      return base58Address; // e.g., T...
+    } catch (e) {
+      throw Exception('Failed to generate TRON address: $e');
+    }
   }
 
   /// Generate Solana address
@@ -256,6 +281,7 @@ class AddressService {
       'binance',
       'polygon',
       'solana',
+      'tron',
     ];
   }
 
@@ -270,6 +296,8 @@ class AddressService {
         return _isValidBitcoinAddress(address);
       case 'solana':
         return _isValidSolanaAddress(address);
+      case 'tron':
+        return _isValidTronAddress(address);
       default:
         return false;
     }
@@ -293,5 +321,132 @@ class AddressService {
   /// Validate Solana address format
   static bool _isValidSolanaAddress(String address) {
     return RegExp(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$').hasMatch(address);
+  }
+
+  /// Validate Tron address format (Base58Check 'T...' or hex '41...')
+  static bool _isValidTronAddress(String address) {
+    final trimmed = address.trim();
+
+    // 检查空地址
+    if (trimmed.isEmpty) {
+      print('TRON地址验证失败: 地址为空');
+      return false;
+    }
+
+    // Accept hex Tron address with '41' prefix
+    final hexPattern = RegExp(r'^41[a-fA-F0-9]{40}$');
+    if (hexPattern.hasMatch(trimmed)) {
+      print('TRON地址验证通过: 十六进制格式 $trimmed');
+      return true;
+    }
+
+    // Quick Base58 sanity check (length and alphabet)
+    // TRON addresses are typically 34 characters (T + 33 chars)
+    final base58Pattern = RegExp(r'^T[1-9A-HJ-NP-Za-km-z]{33}$');
+    if (!base58Pattern.hasMatch(trimmed)) {
+      // Also allow 32-34 characters after 'T' for edge cases
+      final flexiblePattern = RegExp(r'^T[1-9A-HJ-NP-Za-km-z]{32,34}$');
+      if (!flexiblePattern.hasMatch(trimmed)) {
+        print('TRON地址验证失败: 格式不匹配 (地址: $trimmed, 长度: ${trimmed.length})');
+        return false;
+      }
+    }
+
+    // Full Base58Check validation: 0x41 prefix + checksum
+    try {
+      final decoded = _base58Decode(trimmed);
+      if (decoded.length != 25) {
+        print('TRON地址验证失败: 解码后长度不是25字节 (实际: ${decoded.length})');
+        return false;
+      }
+      final payload = decoded.sublist(0, 21);
+      final checksum = decoded.sublist(21, 25);
+      if (payload[0] != 0x41) {
+        print('TRON地址验证失败: 地址前缀不是0x41 (实际: 0x${payload[0].toRadixString(16)})');
+        return false;
+      }
+      final expected = _doubleHash256(payload).sublist(0, 4);
+      for (int i = 0; i < 4; i++) {
+        if (checksum[i] != expected[i]) {
+          print('TRON地址验证失败: Checksum不匹配');
+          return false;
+        }
+      }
+      print('TRON地址验证通过: Base58格式 $trimmed');
+      return true;
+    } catch (e) {
+      print('TRON地址验证失败: $trimmed, 错误: $e');
+      return false;
+    }
+  }
+
+  /// Double SHA256 hash
+  static List<int> _doubleHash256(List<int> data) {
+    final first = sha256.convert(data).bytes;
+    final second = sha256.convert(first).bytes;
+    return second;
+  }
+
+  /// Base58 encoding (Bitcoin alphabet)
+  static String _base58Encode(List<int> input) {
+    const alphabet =
+        '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+    if (input.isEmpty) return '';
+    int leadingZeros = 0;
+    for (int i = 0; i < input.length && input[i] == 0; i++) {
+      leadingZeros++;
+    }
+    var num = BigInt.zero;
+    for (int byte in input) {
+      num = num * BigInt.from(256) + BigInt.from(byte);
+    }
+    final result = <String>[];
+    while (num > BigInt.zero) {
+      final remainder = num % BigInt.from(58);
+      num = num ~/ BigInt.from(58);
+      result.add(alphabet[remainder.toInt()]);
+    }
+    final leadingOnes = '1' * leadingZeros;
+    return leadingOnes + result.reversed.join('');
+  }
+
+  /// Base58 decoding (Bitcoin alphabet)
+  static List<int> _base58Decode(String input) {
+    const alphabet =
+        '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+    final charIndex = <String, int>{};
+    for (int i = 0; i < alphabet.length; i++) {
+      charIndex[alphabet[i]] = i;
+    }
+    if (input.isEmpty) return <int>[];
+
+    int leadingOnes = 0;
+    for (int i = 0; i < input.length && input[i] == '1'; i++) {
+      leadingOnes++;
+    }
+
+    var num = BigInt.zero;
+    for (int i = leadingOnes; i < input.length; i++) {
+      final ch = input[i];
+      final val = charIndex[ch];
+      if (val == null) {
+        throw Exception('Invalid base58 character: $ch');
+      }
+      num = num * BigInt.from(58) + BigInt.from(val);
+    }
+
+    var bytes = <int>[];
+    while (num > BigInt.zero) {
+      final mod = num % BigInt.from(256);
+      num = num ~/ BigInt.from(256);
+      bytes.add(mod.toInt());
+    }
+    bytes = bytes.reversed.toList();
+
+    // Prepend leading zeros corresponding to base58 leading '1's
+    if (leadingOnes > 0) {
+      return List<int>.filled(leadingOnes, 0)..addAll(bytes);
+    }
+    return bytes;
   }
 }

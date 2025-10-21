@@ -442,6 +442,8 @@ class _SidebarState extends State<Sidebar> {
         return Icons.currency_bitcoin;
       case 'solana':
         return Icons.wb_sunny;
+      case 'tron':
+        return Icons.flash_on;
       default:
         return Icons.network_check;
     }

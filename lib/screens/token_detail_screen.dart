@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/wallet_provider.dart';
-import '../models/token.dart';
+import '../models/token_model.dart';
 import '../utils/amount_utils.dart';
 import 'receive_screen.dart';
 import 'swap_screen.dart';
@@ -228,7 +228,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: isPositive 
+                  color: isPositive
                       ? successColor.withOpacity(0.2)
                       : Colors.red.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(6),
@@ -303,9 +303,11 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
         if (currentWallet == null) return const SizedBox.shrink();
 
         // 获取当前网络的地址列表
-        final networkId = widget.asset['id'] as String;
+        // 对于代币，使用 networkId；对于原生币，使用 id
+        final networkId = (widget.asset['networkId'] as String?) ??
+            (widget.asset['id'] as String);
         final addressList = currentWallet.addresses[networkId] ?? [];
-        
+
         if (addressList.isEmpty) {
           return Container(
             padding: const EdgeInsets.all(16),
@@ -351,10 +353,12 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
             itemCount: addressList.length,
             itemBuilder: (context, index) {
               final address = addressList[index];
-              final addressName = currentWallet.addressNames[address] ?? '${currentWallet.name} #${index + 1}';
-              
+              final addressName = currentWallet.addressNames[address] ??
+                  '${currentWallet.name} #${index + 1}';
+
               return Container(
-                margin: EdgeInsets.only(bottom: index < addressList.length - 1 ? 8 : 0),
+                margin: EdgeInsets.only(
+                    bottom: index < addressList.length - 1 ? 8 : 0),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: primaryBackground,
@@ -393,7 +397,8 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            AmountUtils.format(widget.balance / addressList.length), // 平均分配余额显示
+                            AmountUtils.format(widget.balance /
+                                addressList.length), // 平均分配余额显示
                             style: const TextStyle(
                               color: textPrimary,
                               fontSize: 14,
@@ -412,20 +417,20 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
                       ),
                       const SizedBox(width: 8),
                       GestureDetector(
-                         onTap: () => _copyAddressWithParam(address),
-                         child: Container(
-                           padding: const EdgeInsets.all(6),
-                           decoration: BoxDecoration(
-                             color: Colors.white.withOpacity(0.1),
-                             borderRadius: BorderRadius.circular(6),
-                           ),
-                           child: const Icon(
-                             Icons.copy,
-                             color: textSecondary,
-                             size: 16,
-                           ),
-                         ),
-                       ),
+                        onTap: () => _copyAddressWithParam(address),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Icon(
+                            Icons.copy,
+                            color: textSecondary,
+                            size: 16,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -519,7 +524,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
             width: 32,
             height: 32,
             decoration: BoxDecoration(
-              color: isPositive 
+              color: isPositive
                   ? successColor.withOpacity(0.2)
                   : Colors.red.withOpacity(0.2),
               borderRadius: BorderRadius.circular(8),
@@ -730,7 +735,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
   void _addAccount() async {
     final walletProvider = Provider.of<WalletProvider>(context, listen: false);
     final currentWallet = walletProvider.currentWallet;
-    
+
     if (currentWallet == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('没有可用的钱包')),
@@ -771,14 +776,17 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
         },
       );
 
-      final networkId = widget.asset['id'] as String;
-      
+      // 对于代币，使用 networkId；对于原生币，使用 id
+      final networkId = (widget.asset['networkId'] as String?) ??
+          (widget.asset['id'] as String);
+
       // 获取当前网络的地址列表
       final addressList = currentWallet.addresses[networkId] ?? [];
       final nextIndex = addressList.length;
 
       // 使用AddressService生成新地址
-      final newAddress = await walletProvider.generateAddressForNetworkWithIndex(
+      final newAddress =
+          await walletProvider.generateAddressForNetworkWithIndex(
         currentWallet.mnemonic,
         networkId,
         nextIndex,
@@ -808,7 +816,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
       // 关闭加载对话框
       if (mounted) {
         Navigator.pop(context);
-        
+
         // 显示成功消息
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -822,7 +830,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
       // 关闭加载对话框
       if (mounted) {
         Navigator.pop(context);
-        
+
         // 显示错误消息
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -851,26 +859,31 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
   void _navigateToSend() {
     // 使用 addPostFrameCallback 来避免在 build 过程中调用 setState
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final walletProvider = Provider.of<WalletProvider>(context, listen: false);
+      final walletProvider =
+          Provider.of<WalletProvider>(context, listen: false);
       final currentWallet = walletProvider.currentWallet;
-      
+
       if (currentWallet != null) {
+        // 对于代币，使用 networkId；对于原生币，使用 id
+        final networkId = (widget.asset['networkId'] as String?) ??
+            (widget.asset['id'] as String);
+
         // 获取对应的网络信息
         final network = walletProvider.supportedNetworks.firstWhere(
-          (net) => net.id == widget.asset['id'],
+          (net) => net.id == networkId,
           orElse: () => walletProvider.supportedNetworks.first,
         );
-        
+
         // 获取当前网络的地址列表
-        final addressList = currentWallet.addresses[widget.asset['id'] as String] ?? [];
-        
+        final addressList = currentWallet.addresses[networkId] ?? [];
+
         if (addressList.isEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('当前网络没有可用地址')),
           );
           return;
         }
-        
+
         // 根据地址数量决定跳转逻辑
         if (addressList.length == 1) {
           // 只有一个地址，直接跳转到发送详情页面
@@ -907,16 +920,21 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
   void _navigateToSendWithAddress(String address) {
     // 使用 addPostFrameCallback 来避免在 build 过程中调用 setState
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final walletProvider = Provider.of<WalletProvider>(context, listen: false);
+      final walletProvider =
+          Provider.of<WalletProvider>(context, listen: false);
       final currentWallet = walletProvider.currentWallet;
-      
+
       if (currentWallet != null) {
+        // 对于代币，使用 networkId；对于原生币，使用 id
+        final networkId = (widget.asset['networkId'] as String?) ??
+            (widget.asset['id'] as String);
+
         // 获取对应的网络信息
         final network = walletProvider.supportedNetworks.firstWhere(
-          (net) => net.id == widget.asset['id'],
+          (net) => net.id == networkId,
           orElse: () => walletProvider.supportedNetworks.first,
         );
-        
+
         Navigator.pushNamed(
           context,
           '/send_detail',
@@ -934,7 +952,6 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
     });
   }
 
-  
   void _navigateToSwap() {
     Navigator.push(
       context,
@@ -948,9 +965,13 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
     final walletProvider = Provider.of<WalletProvider>(context, listen: false);
     final currentWallet = walletProvider.currentWallet;
     if (currentWallet != null) {
+      // 对于代币，使用 networkId；对于原生币，使用 id
+      final networkId = (widget.asset['networkId'] as String?) ??
+          (widget.asset['id'] as String);
+
       final address = walletProvider.getAddressForNetwork(
         currentWallet.id,
-        widget.asset['id'] as String,
+        networkId,
       );
       if (address != null) {
         Clipboard.setData(ClipboardData(text: address));
