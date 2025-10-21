@@ -799,33 +799,33 @@ class _TokenSelectorContentState extends State<_TokenSelectorContent> {
   }
 
   Widget _buildBalanceInfo(Token token, WalletProvider walletProvider) {
-    return FutureBuilder<double>(
-      future: _getTokenBalance(token, walletProvider),
-      builder: (context, snapshot) {
-        final balance = snapshot.data ?? 0.0;
-        final usdValue = balance * (token.priceUsd ?? 0.0);
-        
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              AmountUtils.formatTruncated(balance, decimals: 6),
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 16,
-              ),
+    // 使用全局缓存显示余额，避免重复请求；缓存更新时通过notifyListeners触发重绘
+    final double balance = token.isNative
+        ? walletProvider.getCachedNetworkBalance(token.networkId)
+        : (token.networkId == 'tron' && token.contractAddress.isNotEmpty)
+            ? walletProvider.getCachedTrc20Balance(token.contractAddress)
+            : 0.0;
+    final double usdValue = balance * (token.priceUsd ?? 0.0);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Text(
+          AmountUtils.formatTruncated(balance, decimals: 6),
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 16,
+          ),
+        ),
+        if (widget.config.showUsdValue)
+          Text(
+            '≈\$${usdValue.toStringAsFixed(2)}',
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 12,
             ),
-            if (widget.config.showUsdValue)
-              Text(
-                '≈\$${usdValue.toStringAsFixed(2)}',
-                style: const TextStyle(
-                  color: Colors.white54,
-                  fontSize: 12,
-                ),
-              ),
-          ],
-        );
-      },
+          ),
+      ],
     );
   }
 
@@ -902,12 +902,14 @@ class _TokenSelectorContentState extends State<_TokenSelectorContent> {
   }
 
   Future<double> _getTokenBalance(Token token, WalletProvider walletProvider) async {
-    // 根据token类型获取余额
+    // 改为使用缓存（组件不主动发起RPC刷新，避免列表重复请求）
     if (token.isNative) {
-      return await walletProvider.getNetworkBalance(token.networkId);
+      return walletProvider.getCachedNetworkBalance(token.networkId);
     } else {
-      // 获取代币余额的逻辑
-      return 0.0; // 暂时返回0，实际需要实现代币余额查询
+      if (token.networkId == 'tron' && token.contractAddress.isNotEmpty) {
+        return walletProvider.getCachedTrc20Balance(token.contractAddress);
+      }
+      return 0.0;
     }
   }
 

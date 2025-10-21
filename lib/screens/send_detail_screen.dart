@@ -122,43 +122,47 @@ class _SendDetailScreenState extends State<SendDetailScreen>
       final walletProvider =
           Provider.of<WalletProvider>(context, listen: false);
 
-      double realBalance;
-
       // 判断是否为 TRC20 代币
       final isNative = _selectedToken?['isNative'] ?? true;
       final isTRC20 = !isNative &&
           _selectedToken?['networkId'] == 'tron' &&
           _selectedToken?['contractAddress'] != null;
 
+      double cachedBalance = 0.0;
+
       if (isTRC20) {
-        // 获取 TRC20 代币余额
         final contractAddress = _selectedToken!['contractAddress'] as String;
         final decimals = (_selectedToken!['decimals'] as int?) ?? 6;
 
-        debugPrint('=== 加载 TRC20 余额 ===');
-        debugPrint('合约地址: $contractAddress');
-        debugPrint('小数位: $decimals');
+        // 1) 缓存优先
+        cachedBalance = walletProvider.getCachedTrc20Balance(contractAddress);
+        setState(() {
+          balance = cachedBalance;
+        });
 
-        realBalance = await walletProvider.getTRC20Balance(
+        // 2) 刷新并在变化时更新
+        final fresh = await walletProvider.refreshTrc20Balance(
           contractAddress: contractAddress,
           decimals: decimals,
         );
+        if (mounted && fresh != cachedBalance) {
+          setState(() {
+            balance = fresh;
+          });
+        }
       } else {
-        // 使用统一的网络余额获取方法
-        realBalance = await walletProvider.getNetworkBalance(network!.id);
+        // 原生资产：先缓存，再刷新
+        cachedBalance = walletProvider.getCachedNetworkBalance(network!.id);
+        setState(() {
+          balance = cachedBalance;
+        });
+        final fresh = await walletProvider.refreshNetworkBalance(network!.id);
+        if (mounted && fresh != cachedBalance) {
+          setState(() {
+            balance = fresh;
+          });
+        }
       }
-
-      debugPrint('=== 加载余额 ===');
-      debugPrint('网络: ${network!.id}');
-      debugPrint('地址: $address');
-      debugPrint('代币类型: ${isTRC20 ? "TRC20" : "原生"}');
-      debugPrint('获取到的余额: $realBalance');
-
-      setState(() {
-        balance = realBalance;
-      });
-
-      debugPrint('设置后的余额: $balance');
     } catch (e) {
       debugPrint('获取余额失败: $e');
       // 保持默认余额值

@@ -34,6 +34,143 @@ class WalletProvider extends ChangeNotifier {
   String? _selectedAddress;
   List<Token> _customTokens = [];
   bool _isBalanceHidden = false;
+  bool _isTestnetMode = false;
+
+  // 每链环境选择与RPC持久化
+  Map<String, String> _networkEnvironments = {}; // networkId -> envId
+  Map<String, List<String>> _customRpcUrls = {}; // networkId -> custom rpc list
+  Map<String, String> _selectedRpcByNetwork = {}; // networkId -> selected rpc
+
+  // 环境配置表：各链主网/测试网的默认RPC、浏览器与链ID
+  final Map<String, Map<String, Map<String, dynamic>>> _envConfigs = {
+    'ethereum': {
+      'mainnet': {
+        'chainId': 1,
+        'explorer': 'https://etherscan.io',
+        'rpcUrls': [
+          'https://ethereum.blockpi.network/v1/rpc/bb98a6bd2a003a01b46b479224a24db69caed026',
+          'https://rpc.ankr.com/eth',
+          'https://ethereum.publicnode.com',
+        ],
+      },
+      'sepolia': {
+        'chainId': 11155111,
+        'explorer': 'https://sepolia.etherscan.io',
+        'rpcUrls': [
+          'https://rpc.sepolia.org',
+          'https://ethereum-sepolia.blockpi.network/v1/rpc/public',
+          'https://rpc.ankr.com/eth_sepolia',
+        ],
+      },
+    },
+    'polygon': {
+      'mainnet': {
+        'chainId': 137,
+        'explorer': 'https://polygonscan.com',
+        'rpcUrls': [
+          'https://polygon-rpc.com',
+          'https://rpc.ankr.com/polygon',
+          'https://polygon.publicnode.com',
+        ],
+      },
+      'amoy': {
+        'chainId': 80002,
+        'explorer': 'https://amoy.polygonscan.com',
+        'rpcUrls': [
+          'https://rpc-amoy.polygon.technology',
+          'https://rpc.ankr.com/polygon_amoy',
+        ],
+      },
+      'mumbai': {
+        'chainId': 80001,
+        'explorer': 'https://mumbai.polygonscan.com',
+        'rpcUrls': [
+          'https://rpc-mumbai.maticvigil.com',
+          'https://rpc.ankr.com/polygon_mumbai',
+        ],
+      },
+    },
+    'bsc': {
+      'mainnet': {
+        'chainId': 56,
+        'explorer': 'https://bscscan.com',
+        'rpcUrls': [
+          'https://bsc.blockpi.network/v1/rpc/77e2b602c1012feb83cfc51b592656b3dcfa231f',
+          'https://bsc-dataseed.binance.org',
+          'https://rpc.ankr.com/bsc',
+        ],
+      },
+      'testnet': {
+        'chainId': 97,
+        'explorer': 'https://testnet.bscscan.com',
+        'rpcUrls': [
+          'https://data-seed-prebsc-1-s3.bnbchain.org:8545',
+          'https://data-seed-prebsc-2-s3.bnbchain.org:8545',
+        ],
+      },
+    },
+    'bitcoin': {
+      'mainnet': {
+        'explorer': 'https://blockstream.info',
+        'rpcUrls': [
+          'https://blockstream.info/api',
+          'https://mempool.space/api',
+        ],
+      },
+      'testnet': {
+        'explorer': 'https://blockstream.info/testnet',
+        'rpcUrls': [
+          'https://blockstream.info/testnet/api',
+          'https://mempool.space/testnet/api',
+        ],
+      },
+      'signet': {
+        'explorer': 'https://mempool.space/signet',
+        'rpcUrls': [
+          'https://mempool.space/signet/api',
+        ],
+      },
+    },
+    'solana': {
+      'mainnet': {
+        'chainId': 101,
+        'explorer': 'https://explorer.solana.com',
+        'rpcUrls': [
+          'https://api.mainnet-beta.solana.com',
+          'https://rpc.ankr.com/solana',
+          'https://solana-api.projectserum.com',
+        ],
+      },
+      'devnet': {
+        'explorer': 'https://explorer.solana.com?cluster=devnet',
+        'rpcUrls': [
+          'https://api.devnet.solana.com',
+          'https://rpc.ankr.com/solana_devnet',
+        ],
+      },
+      'testnet': {
+        'explorer': 'https://explorer.solana.com?cluster=testnet',
+        'rpcUrls': [
+          'https://api.testnet.solana.com',
+        ],
+      },
+    },
+    'tron': {
+      'mainnet': {
+        'explorer': 'https://tronscan.org',
+        'rpcUrls': [
+          'https://api.trongrid.io',
+        ],
+      },
+      'nile': {
+        'explorer': 'https://nile.tronscan.org',
+        'rpcUrls': [
+          'https://nile.trongrid.io',
+          'https://api.nileex.io',
+        ],
+      },
+    },
+  };
 
   List<Wallet> get wallets => _wallets;
   Wallet? get currentWallet => _currentWallet;
@@ -43,16 +180,339 @@ class WalletProvider extends ChangeNotifier {
   String? get selectedAddress => _selectedAddress;
   List<Token> get customTokens => _customTokens;
   bool get isBalanceHidden => _isBalanceHidden;
+  bool get isTestnetMode => _isTestnetMode;
 
   final StorageService _storageService = StorageService();
   SolanaWalletService? _solanaWalletService;
   TransactionMonitorService? _transactionMonitorService;
   SolanaTransactionMonitor? _solanaTransactionMonitor;
 
+  // 余额缓存相关
+  static const String _balanceCacheKey = 'balance_cache_v1';
+  final Map<String, double> _balanceCache = {};
+  final Map<String, DateTime> _balanceUpdatedAt = {};
+  final Map<String, Future<double>> _inFlightBalanceRefresh = {};
+
   WalletProvider() {
     _initializeSupportedNetworks();
     _loadWallets();
     _loadCustomTokens();
+    _initializeSolanaService();
+    _loadNetworkEnvAndRpc();
+    _loadTestnetMode();
+    _loadBalanceCache();
+  }
+
+  Future<void> _loadTestnetMode() async {
+    try {
+      final data = await _storageService.getData('testnet_mode');
+      final enabled = (data is Map && (data['enabled'] == true));
+      _isTestnetMode = enabled;
+      _applyNetworkMode();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('加载测试网模式失败: $e');
+    }
+  }
+
+  Future<void> _loadNetworkEnvAndRpc() async {
+    try {
+      final envData = await _storageService.getData('network_env_selection');
+      if (envData is Map) {
+        _networkEnvironments = envData.map((k, v) => MapEntry(k.toString(), v.toString()));
+      }
+      final customRpcData = await _storageService.getData('network_custom_rpc_urls');
+      if (customRpcData is Map) {
+        _customRpcUrls = customRpcData.map((k, v) => MapEntry(k.toString(), List<String>.from(v as List)));
+      }
+      final selectedRpcData = await _storageService.getData('network_selected_rpc');
+      if (selectedRpcData is Map) {
+        _selectedRpcByNetwork = selectedRpcData.map((k, v) => MapEntry(k.toString(), v.toString()));
+      }
+      _applyNetworkMode();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('加载网络环境与RPC设置失败: $e');
+    }
+  }
+
+  /// 加载余额缓存
+  Future<void> _loadBalanceCache() async {
+    try {
+      final data = await _storageService.getData(_balanceCacheKey);
+      if (data is Map<String, dynamic>) {
+        data.forEach((k, v) {
+          final val = (v is num) ? v.toDouble() : double.tryParse('$v');
+          if (val != null) {
+            _balanceCache[k] = val;
+          }
+        });
+        debugPrint('余额缓存已加载: ${_balanceCache.keys.length} 项');
+      }
+    } catch (e) {
+      debugPrint('加载余额缓存失败: $e');
+    }
+  }
+
+  /// 保存余额缓存
+  Future<void> _saveBalanceCache() async {
+    try {
+      await _storageService.saveData(_balanceCacheKey, _balanceCache);
+    } catch (e) {
+      debugPrint('保存余额缓存失败: $e');
+    }
+  }
+
+  /// 获取网络主地址（优先选中地址，否则第一个）
+  String? _primaryAddressForNetwork(String networkId) {
+    final addresses = _currentWallet?.addresses[networkId] ?? [];
+    if (addresses.isEmpty) return null;
+    if (_selectedAddress != null && addresses.contains(_selectedAddress)) {
+      return _selectedAddress;
+    }
+    return addresses.first;
+  }
+
+  /// 构造原生资产缓存键
+  String? _networkAssetKey(String networkId) {
+    final addr = _primaryAddressForNetwork(networkId);
+    if (addr == null) return null;
+    return 'native:' + networkId + ':' + addr;
+  }
+
+  /// 构造 TRC20 资产缓存键
+  String? _trc20AssetKey(String contractAddress) {
+    final addr = _primaryAddressForNetwork('tron');
+    if (addr == null) return null;
+    return 'trc20:' + contractAddress + ':' + addr;
+  }
+
+  /// 读取缓存的原生网络余额
+  double getCachedNetworkBalance(String networkId) {
+    final key = _networkAssetKey(networkId);
+    if (key == null) return 0.0;
+    return _balanceCache[key] ?? 0.0;
+  }
+
+  /// 读取缓存的 TRC20 余额
+  double getCachedTrc20Balance(String contractAddress) {
+    final key = _trc20AssetKey(contractAddress);
+    if (key == null) return 0.0;
+    return _balanceCache[key] ?? 0.0;
+  }
+
+  /// 批量读取缓存（原生资产ID为网络ID，TRP为固定ID）
+  Map<String, double> getCachedBalancesByAssetIds(List<String> assetIds) {
+    final result = <String, double>{};
+    for (final id in assetIds) {
+      if (id == 'trp-tron') {
+        result[id] = getCachedTrc20Balance('TVcNAxqqVb3WmeGZ6PLPz8SfoTwJAHXgXQ');
+      } else {
+        result[id] = getCachedNetworkBalance(id);
+      }
+    }
+    return result;
+  }
+
+  /// 刷新原生网络余额：RPC成功且有变化时更新缓存；失败保留原值
+  Future<double> refreshNetworkBalance(String networkId, {String? rpcUrl}) async {
+    final cacheKey = _networkAssetKey(networkId);
+    if (cacheKey == null) return 0.0;
+
+    final existing = _inFlightBalanceRefresh[cacheKey];
+    if (existing != null) {
+      try {
+        final val = await existing;
+        return _balanceCache[cacheKey] ?? val;
+      } catch (_) {}
+    }
+
+    final future = _retryOperation(() async {
+      final fresh = await getNetworkBalance(networkId, rpcUrl: rpcUrl);
+      final old = _balanceCache[cacheKey];
+      if (fresh.isFinite) {
+        final changed = (old == null) || (fresh != old);
+        if (changed) {
+          _balanceCache[cacheKey] = fresh;
+          _balanceUpdatedAt[cacheKey] = DateTime.now();
+          await _saveBalanceCache();
+          notifyListeners();
+        }
+        return fresh;
+      }
+      return old ?? 0.0;
+    });
+
+    _inFlightBalanceRefresh[cacheKey] = future;
+    try {
+      return await future;
+    } finally {
+      _inFlightBalanceRefresh.remove(cacheKey);
+    }
+  }
+
+  /// 刷新 TRC20 余额：RPC成功且有变化时更新缓存；失败保留原值
+  Future<double> refreshTrc20Balance({
+    required String contractAddress,
+    required int decimals,
+    String? rpcUrl,
+  }) async {
+    final cacheKey = _trc20AssetKey(contractAddress);
+    if (cacheKey == null) return 0.0;
+
+    final existing = _inFlightBalanceRefresh[cacheKey];
+    if (existing != null) {
+      try {
+        final val = await existing;
+        return _balanceCache[cacheKey] ?? val;
+      } catch (_) {}
+    }
+
+    final future = _retryOperation(() async {
+      final fresh = await getTRC20Balance(
+        contractAddress: contractAddress,
+        decimals: decimals,
+        rpcUrl: rpcUrl,
+      );
+      final old = _balanceCache[cacheKey];
+      if (fresh.isFinite) {
+        final changed = (old == null) || (fresh != old);
+        if (changed) {
+          _balanceCache[cacheKey] = fresh;
+          _balanceUpdatedAt[cacheKey] = DateTime.now();
+          await _saveBalanceCache();
+          notifyListeners();
+        }
+        return fresh;
+      }
+      return old ?? 0.0;
+    });
+
+    _inFlightBalanceRefresh[cacheKey] = future;
+    try {
+      return await future;
+    } finally {
+      _inFlightBalanceRefresh.remove(cacheKey);
+    }
+  }
+
+  /// 刷新首页涉及的所有余额（原生+TRP）
+  Future<void> refreshAllBalances() async {
+    final networks = ['ethereum', 'polygon', 'bsc', 'bitcoin', 'solana', 'tron'];
+    for (final n in networks) {
+      try {
+        await refreshNetworkBalance(n);
+      } catch (e) {
+        debugPrint('刷新 ' + n + ' 余额失败: ' + e.toString());
+      }
+    }
+    try {
+      await refreshTrc20Balance(
+        contractAddress: 'TVcNAxqqVb3WmeGZ6PLPz8SfoTwJAHXgXQ',
+        decimals: 6,
+      );
+    } catch (e) {
+      debugPrint('刷新 TRP 余额失败: ' + e.toString());
+    }
+  }
+
+  List<String> getAvailableEnvironments(String networkId) {
+    final envs = _envConfigs[networkId]?.keys.toList() ?? const [];
+    return envs;
+  }
+
+  String getSelectedEnvironment(String networkId) {
+    if (!_isTestnetMode) return 'mainnet';
+    return _networkEnvironments[networkId] ?? _defaultTestnetEnvFor(networkId);
+  }
+
+  Future<void> setNetworkEnvironment(String networkId, String envId) async {
+    _networkEnvironments[networkId] = envId;
+    await _storageService.saveData('network_env_selection', _networkEnvironments);
+    _applyNetworkMode();
+    notifyListeners();
+  }
+
+  String _defaultTestnetEnvFor(String networkId) {
+    switch (networkId) {
+      case 'ethereum':
+        return 'sepolia';
+      case 'polygon':
+        return 'amoy';
+      case 'bsc':
+        return 'testnet';
+      case 'bitcoin':
+        return 'testnet';
+      case 'solana':
+        return 'devnet';
+      case 'tron':
+        return 'nile';
+      default:
+        return 'mainnet';
+    }
+  }
+
+  Map<String, dynamic>? _getEnvConfig(String networkId, String envId) {
+    return _envConfigs[networkId]?[envId];
+  }
+
+  Future<void> setTestnetMode(bool enabled) async {
+    _isTestnetMode = enabled;
+    await _storageService.saveData('testnet_mode', {'enabled': enabled});
+    _applyNetworkMode();
+    notifyListeners();
+  }
+
+  void _applyNetworkMode() {
+    final updated = <Network>[];
+    for (final network in _supportedNetworks) {
+      final networkId = network.id;
+      final envId = _isTestnetMode ? getSelectedEnvironment(networkId) : 'mainnet';
+      final envConfig = _getEnvConfig(networkId, envId);
+
+      List<String> baseRpcUrls = [];
+      String explorer = network.explorerUrl;
+      int chainId = network.chainId;
+
+      if (envConfig != null) {
+        baseRpcUrls = List<String>.from(envConfig['rpcUrls'] ?? const []);
+        explorer = (envConfig['explorer'] as String?) ?? explorer;
+        final cid = envConfig['chainId'];
+        if (cid is int) {
+          chainId = cid;
+        }
+      } else {
+        baseRpcUrls = network.rpcUrls;
+      }
+
+      final customList = _customRpcUrls[networkId] ?? const <String>[];
+      final mergedRpcUrls = {...baseRpcUrls, ...customList}.toList();
+
+      String rpcUrl;
+      final selected = _selectedRpcByNetwork[networkId];
+      if (selected != null && mergedRpcUrls.contains(selected)) {
+        rpcUrl = selected;
+      } else {
+        rpcUrl = mergedRpcUrls.isNotEmpty ? mergedRpcUrls.first : network.rpcUrl;
+      }
+
+      updated.add(network.copyWith(
+        rpcUrl: rpcUrl,
+        rpcUrls: mergedRpcUrls,
+        explorerUrl: explorer,
+        chainId: chainId,
+      ));
+    }
+
+    _supportedNetworks = updated;
+    if (_currentNetwork != null) {
+      final currentId = _currentNetwork!.id;
+      _currentNetwork = _supportedNetworks.firstWhere(
+        (n) => n.id == currentId,
+        orElse: () => _supportedNetworks.first,
+      );
+    }
+
     _initializeSolanaService();
   }
 
@@ -194,6 +654,27 @@ class WalletProvider extends ChangeNotifier {
   /// Get wallet mnemonic with password
   Future<String?> getWalletMnemonic(String walletId, String password) async {
     return await _storageService.getWalletMnemonic(walletId, password);
+  }
+
+  /// Clear sensitive data (mnemonics) from memory on lock
+  void clearSensitiveMemory() {
+    try {
+      // Wipe mnemonics from all loaded wallets in memory
+      _wallets = _wallets.map((w) => w.copyWith(mnemonic: '')).toList();
+      if (_currentWallet != null) {
+        final idx = _wallets.indexWhere((w) => w.id == _currentWallet!.id);
+        if (idx != -1) {
+          _currentWallet = _wallets[idx];
+        } else {
+          _currentWallet = _currentWallet!.copyWith(mnemonic: '');
+        }
+      }
+      // Also clear any selected address credential-related state implicitly tied to mnemonic
+      // (No explicit private state here, addresses remain for display)
+      notifyListeners();
+    } catch (e) {
+      debugPrint('清除内存敏感数据失败: $e');
+    }
   }
 
   Future<String?> getWalletPrivateKey(String walletId, String password) async {
@@ -793,75 +1274,53 @@ class WalletProvider extends ChangeNotifier {
     return network.rpcUrls ?? [network.rpcUrl];
   }
 
+  String? getSelectedRpcForNetwork(String networkId) {
+    final selected = _selectedRpcByNetwork[networkId];
+    if (selected != null) return selected;
+    final envId = _isTestnetMode ? getSelectedEnvironment(networkId) : 'mainnet';
+    final envConfig = _getEnvConfig(networkId, envId);
+    final baseRpcUrls = List<String>.from(envConfig?['rpcUrls'] ?? const []);
+    final customList = _customRpcUrls[networkId] ?? const <String>[];
+    final merged = {...baseRpcUrls, ...customList}.toList();
+    return merged.isNotEmpty ? merged.first : null;
+  }
+
   /// 更新网络的当前RPC URL
   void updateNetworkRpcUrl(String networkId, String newRpcUrl) {
-    final networkIndex =
-        _supportedNetworks.indexWhere((n) => n.id == networkId);
-    if (networkIndex != -1) {
-      _supportedNetworks[networkIndex] =
-          _supportedNetworks[networkIndex].copyWith(
-        rpcUrl: newRpcUrl,
-      );
-
-      // 如果是当前网络，更新当前网络
-      if (_currentNetwork?.id == networkId) {
-        _currentNetwork = _supportedNetworks[networkIndex];
-      }
-
-      notifyListeners();
-    }
+    _selectedRpcByNetwork[networkId] = newRpcUrl;
+    _storageService.saveData('network_selected_rpc', _selectedRpcByNetwork);
+    _applyNetworkMode();
+    notifyListeners();
   }
 
   /// 添加自定义RPC URL到网络
   void addCustomRpcUrl(String networkId, String rpcUrl) {
-    final networkIndex =
-        _supportedNetworks.indexWhere((n) => n.id == networkId);
-    if (networkIndex != -1) {
-      final network = _supportedNetworks[networkIndex];
-      final updatedRpcUrls =
-          List<String>.from(network.rpcUrls ?? [network.rpcUrl]);
-
-      if (!updatedRpcUrls.contains(rpcUrl)) {
-        updatedRpcUrls.add(rpcUrl);
-
-        _supportedNetworks[networkIndex] = network.copyWith(
-          rpcUrls: updatedRpcUrls,
-        );
-
-        // 如果是当前网络，更新当前网络
-        if (_currentNetwork?.id == networkId) {
-          _currentNetwork = _supportedNetworks[networkIndex];
-        }
-
-        notifyListeners();
-      }
+    final list = List<String>.from(_customRpcUrls[networkId] ?? const <String>[]);
+    if (!list.contains(rpcUrl)) {
+      list.add(rpcUrl);
+      _customRpcUrls[networkId] = list;
+      _storageService.saveData('network_custom_rpc_urls', _customRpcUrls);
+      _applyNetworkMode();
+      notifyListeners();
     }
   }
 
   /// 移除自定义RPC URL
   void removeCustomRpcUrl(String networkId, String rpcUrl) {
-    final networkIndex =
-        _supportedNetworks.indexWhere((n) => n.id == networkId);
-    if (networkIndex != -1) {
-      final network = _supportedNetworks[networkIndex];
-      final updatedRpcUrls =
-          List<String>.from(network.rpcUrls ?? [network.rpcUrl]);
+    final list = List<String>.from(_customRpcUrls[networkId] ?? const <String>[]);
+    if (list.contains(rpcUrl)) {
+      list.remove(rpcUrl);
+      _customRpcUrls[networkId] = list;
+      _storageService.saveData('network_custom_rpc_urls', _customRpcUrls);
 
-      // 不能删除默认的RPC URL
-      if (rpcUrl != network.rpcUrl && updatedRpcUrls.contains(rpcUrl)) {
-        updatedRpcUrls.remove(rpcUrl);
-
-        _supportedNetworks[networkIndex] = network.copyWith(
-          rpcUrls: updatedRpcUrls,
-        );
-
-        // 如果是当前网络，更新当前网络
-        if (_currentNetwork?.id == networkId) {
-          _currentNetwork = _supportedNetworks[networkIndex];
-        }
-
-        notifyListeners();
+      // 如果当前选择的RPC被删除，回退到第一个可用RPC
+      if (_selectedRpcByNetwork[networkId] == rpcUrl) {
+        _selectedRpcByNetwork.remove(networkId);
+        _storageService.saveData('network_selected_rpc', _selectedRpcByNetwork);
       }
+
+      _applyNetworkMode();
+      notifyListeners();
     }
   }
 
@@ -1528,6 +1987,18 @@ class WalletProvider extends ChangeNotifier {
         decimals: decimals,
         tronRpcBaseUrl: effectiveRpcUrl,
       );
+
+      // 交易成功后主动刷新余额（TRC20 与 TRX 原生）
+      try {
+        await refreshTrc20Balance(
+          contractAddress: contractAddress,
+          decimals: decimals,
+          rpcUrl: effectiveRpcUrl,
+        );
+        await refreshNetworkBalance('tron', rpcUrl: effectiveRpcUrl);
+      } catch (e) {
+        debugPrint('发送后刷新TRON余额失败: ' + e.toString());
+      }
 
       return txId;
     } catch (e) {

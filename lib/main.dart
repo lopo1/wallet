@@ -55,6 +55,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
     // 设置锁屏回调
     _screenLockService.setLockScreenCallback(() {
+      try {
+        final walletProvider = Provider.of<WalletProvider>(context, listen: false);
+        walletProvider.clearSensitiveMemory();
+      } catch (e) {
+        debugPrint('锁屏清空敏感数据失败: $e');
+      }
       _navigateToLogin();
     });
 

@@ -933,7 +933,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
-  /// 加载真实余额数据
+  /// 加载真实余额数据（缓存优先，成功后刷新并仅在变化时更新）
   Future<void> _loadRealBalances() async {
     if (!mounted) return;
 
@@ -961,38 +961,36 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         'tron': 0.1,
       };
 
-      double totalValue = 0.0;
-      Map<String, double> balances = {};
-
-      for (String networkId in networks) {
-        try {
-          final balance = await walletProvider.getNetworkBalance(networkId);
-          balances[networkId] = balance;
-          totalValue += balance * (prices[networkId] ?? 0.0);
-        } catch (e) {
-          debugPrint('获取 $networkId 余额失败: $e');
-          balances[networkId] = 0.0;
-        }
-      }
-
-      // 加载 TRC20 代币余额（TRP）
-      try {
-        final trpBalance = await walletProvider.getTRC20Balance(
-          contractAddress: 'TVcNAxqqVb3WmeGZ6PLPz8SfoTwJAHXgXQ',
-          decimals: 6,
-        );
-        balances['trp-tron'] = trpBalance;
-        debugPrint('TRP 余额: $trpBalance');
-      } catch (e) {
-        debugPrint('获取 TRP 余额失败: $e');
-        balances['trp-tron'] = 0.0;
-      }
-
+      // 1) 先用缓存快速显示
+      final assetIds = [...networks, 'trp-tron'];
+      final cached = walletProvider.getCachedBalancesByAssetIds(assetIds);
+      double cachedTotal = 0.0;
+      cached.forEach((id, bal) {
+        final net = id == 'trp-tron' ? 'tron' : id;
+        cachedTotal += bal * (prices[net] ?? 0.0);
+      });
       if (mounted) {
         setState(() {
-          _realBalances = balances;
-          _totalPortfolioValue = totalValue;
+          _realBalances = cached;
+          _totalPortfolioValue = cachedTotal;
           _isLoadingBalances = false;
+        });
+      }
+
+      // 2) 后台刷新所有余额（去重、仅变化时更新缓存）
+      await walletProvider.refreshAllBalances();
+
+      // 3) 刷新完成后重新读取缓存并更新UI（如果有变化）
+      final updated = walletProvider.getCachedBalancesByAssetIds(assetIds);
+      double updatedTotal = 0.0;
+      updated.forEach((id, bal) {
+        final net = id == 'trp-tron' ? 'tron' : id;
+        updatedTotal += bal * (prices[net] ?? 0.0);
+      });
+      if (mounted) {
+        setState(() {
+          _realBalances = updated;
+          _totalPortfolioValue = updatedTotal;
         });
       }
     } catch (e) {

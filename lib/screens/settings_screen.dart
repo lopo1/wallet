@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../services/screen_lock_service.dart';
 import '../widgets/bottom_nav_bar.dart';
 import 'security_settings_screen.dart';
+import '../providers/wallet_provider.dart';
+import 'developer_settings_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -134,8 +137,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
 
-          // 占位，保持标题居中
-          const SizedBox(width: 32),
+          // 右侧显示网络模式指示
+          Consumer<WalletProvider>(
+            builder: (context, provider, _) {
+              if (!provider.isTestnetMode) {
+                return const SizedBox(width: 32);
+              }
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+                ),
+                child: const Text(
+                  '测试网',
+                  style: TextStyle(
+                    color: Color(0xFF10B981),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              );
+            },
+          ),
         ],
       ),
     );
@@ -465,10 +490,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showDeveloperSettings() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('开发者设置功能开发中...'),
-        backgroundColor: Color(0xFF6366F1),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const DeveloperSettingsScreen(),
       ),
     );
   }

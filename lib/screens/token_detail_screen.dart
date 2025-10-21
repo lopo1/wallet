@@ -7,6 +7,7 @@ import '../utils/amount_utils.dart';
 import 'receive_screen.dart';
 import 'swap_screen.dart';
 import 'address_selection_screen.dart';
+import '../constants/password_constants.dart';
 
 class TokenDetailScreen extends StatefulWidget {
   final Map<String, dynamic> asset;
@@ -784,10 +785,84 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> {
       final addressList = currentWallet.addresses[networkId] ?? [];
       final nextIndex = addressList.length;
 
-      // 使用AddressService生成新地址
-      final newAddress =
+      // 新增：派生前进行密码校验并解密助记词
+      final TextEditingController passwordController = TextEditingController();
+      String? decryptedMnemonic;
+
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext ctx) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1A1B23),
+            title: const Text('输入钱包密码', style: TextStyle(color: Colors.white)),
+            content: TextField(
+              controller: passwordController,
+              obscureText: true,
+              style: const TextStyle(color: Colors.white),
+              keyboardType: TextInputType.number,
+              inputFormatters: <TextInputFormatter>[
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(PasswordConstants.passwordLength),
+              ],
+              decoration: const InputDecoration(
+                labelText: '密码',
+                labelStyle: TextStyle(color: Colors.white70),
+                border: OutlineInputBorder(),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white30),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Colors.orange),
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('取消', style: TextStyle(color: Colors.white70)),
+              ),
+              TextButton(
+                onPressed: () async {
+                  final password = passwordController.text.trim();
+                  final error = PasswordConstants.validatePassword(password);
+                  if (error != null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(error), backgroundColor: Colors.red),
+                    );
+                    return;
+                  }
+                  final ok = await walletProvider.verifyPasswordForWallet(currentWallet.id, password);
+                  if (!ok) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('密码错误'), backgroundColor: Colors.red),
+                    );
+                    return;
+                  }
+                  decryptedMnemonic = await walletProvider.getWalletMnemonic(currentWallet.id, password);
+                  if (decryptedMnemonic == null || decryptedMnemonic!.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('助记词解密失败'), backgroundColor: Colors.red),
+                    );
+                    return;
+                  }
+                  Navigator.of(ctx).pop();
+                },
+                child: const Text('确认', style: TextStyle(color: Colors.orange)),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (decryptedMnemonic == null || decryptedMnemonic!.isEmpty) {
+        throw Exception('未获取到助记词，无法派生新地址');
+      }
+
+      // 使用解密后的助记词派生新地址
+      final newAddress=
           await walletProvider.generateAddressForNetworkWithIndex(
-        currentWallet.mnemonic,
+        decryptedMnemonic!,
         networkId,
         nextIndex,
       );
