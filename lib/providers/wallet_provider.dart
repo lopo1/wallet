@@ -23,6 +23,7 @@ import '../constants/network_constants.dart';
 import '../models/token_model.dart';
 import '../services/tron_service.dart';
 import '../services/trc20_service.dart';
+import '../services/tron_fee_service.dart';
 
 class WalletProvider extends ChangeNotifier {
   List<Wallet> _wallets = [];
@@ -1492,6 +1493,21 @@ class WalletProvider extends ChangeNotifier {
       final cleanToAddress = toAddress.trim();
       final cleanFromAddress = fromAddress.trim();
 
+      // 预校验：根据助记词与索引推导地址并与选中地址比对
+      try {
+        final preDerived = await generateAddressForNetworkWithIndex(
+          mnemonic,
+          'tron',
+          addressIndex,
+        );
+        debugPrint('签名地址预校验(TRC20): 推导地址 ' + preDerived + ', 选中地址 ' + cleanFromAddress);
+        if (preDerived != cleanFromAddress) {
+          debugPrint('错误(TRC20): 选中地址与推导地址不一致，可能索引错位或网络切换未同步');
+        }
+      } catch (e) {
+        debugPrint('签名地址预校验(TRC20)失败: $e');
+      }
+
       // 地址校验
       if (!AddressService.validateAddress(cleanToAddress, 'tron')) {
         throw Exception('收款地址格式无效: $cleanToAddress');
@@ -1739,6 +1755,21 @@ class WalletProvider extends ChangeNotifier {
         // 清理地址（去除空格和换行符）
         final cleanToAddress = toAddress.trim();
         final cleanFromAddress = fromAddress.trim();
+
+        // 预校验：根据助记词与索引推导地址并与选中地址比对
+        try {
+          final preDerived = await generateAddressForNetworkWithIndex(
+            mnemonic,
+            'tron',
+            addressIndex,
+          );
+          debugPrint('签名地址预校验: 推导地址 $preDerived, 选中地址 $cleanFromAddress');
+          if (preDerived != cleanFromAddress) {
+            debugPrint('错误: 选中地址与推导地址不一致，可能索引错位或网络切换未同步');
+          }
+        } catch (e) {
+          debugPrint('签名地址预校验失败: $e');
+        }
 
         // 基本地址校验
         debugPrint('验证收款地址: $cleanToAddress (长度: ${cleanToAddress.length})');
@@ -2260,7 +2291,7 @@ class WalletProvider extends ChangeNotifier {
 
   /// 获取网络的实时费用估算
   Future<double> getNetworkFeeEstimate(String networkId,
-      {String? rpcUrl, double? amount}) async {
+      {String? rpcUrl, double? amount, String? toAddress}) async {
     try {
       switch (networkId) {
         case NetworkConstants.ethereumNetworkId:
@@ -2272,6 +2303,12 @@ class WalletProvider extends ChangeNotifier {
           return await _getSolanaFeeEstimate(amount: amount);
         case NetworkConstants.bitcoinNetworkId:
           return await _getBitcoinFeeEstimate(amount: amount);
+        case 'tron':
+          return await _getTronFeeEstimate(
+            rpcUrl: rpcUrl,
+            amount: amount,
+            toAddress: toAddress,
+          );
         default:
           return NetworkConstants.ethereumBaseFee; // 默认费用
       }
@@ -2287,6 +2324,8 @@ class WalletProvider extends ChangeNotifier {
           return NetworkConstants.solanaBaseFee;
         case NetworkConstants.bitcoinNetworkId:
           return NetworkConstants.bitcoinBaseFee;
+        case 'tron':
+          return 0.1; // TRON 默认费用
         default:
           return NetworkConstants.ethereumBaseFee;
       }
@@ -2396,6 +2435,78 @@ class WalletProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('获取比特币费用估算失败: $e');
       return 0.0001; // 返回默认值
+    }
+  }
+
+  /// 获取 TRON 网络的费用估算
+  Future<double> _getTronFeeEstimate({
+    String? rpcUrl,
+    double? amount,
+    String? toAddress,
+  }) async {
+    try {
+      final network = _supportedNetworks.firstWhere((n) => n.id == 'tron');
+      final effectiveRpcUrl = rpcUrl ?? network.rpcUrl;
+
+      // 获取发送方地址
+      final fromAddress = getCurrentNetworkAddress();
+      if (fromAddress == null) {
+        debugPrint('无法获取 TRON 发送地址');
+        return 0.1; // 返回默认值
+      }
+
+      // 如果没有提供目标地址，返回基础费用估算
+      if (toAddress == null || toAddress.isEmpty) {
+        debugPrint('未提供目标地址，返回基础费用估算');
+        return 0.1; // 基础带宽费用
+      }
+
+      // 调用费用估算服务
+      final feeEstimate = await TronFeeService.estimateTrxTransferFee(
+        fromAddress: fromAddress,
+        toAddress: toAddress,
+        amountTRX: amount ?? 0.001,
+        tronRpcBaseUrl: effectiveRpcUrl,
+      );
+
+      debugPrint('TRON 费用估算: ${feeEstimate.totalFeeTrx} TRX');
+      return feeEstimate.totalFeeTrx;
+    } catch (e) {
+      debugPrint('获取 TRON 费用估算失败: $e');
+      return 0.1; // 返回默认值
+    }
+  }
+
+  /// 获取 TRC20 代币的费用估算
+  Future<TronFeeEstimate> getTrc20FeeEstimate({
+    required String contractAddress,
+    required String toAddress,
+    required double amount,
+    required int decimals,
+    String? rpcUrl,
+  }) async {
+    try {
+      final network = _supportedNetworks.firstWhere((n) => n.id == 'tron');
+      final effectiveRpcUrl = rpcUrl ?? network.rpcUrl;
+
+      // 获取发送方地址
+      final fromAddress = getCurrentNetworkAddress();
+      if (fromAddress == null) {
+        throw Exception('无法获取 TRON 发送地址');
+      }
+
+      // 调用费用估算服务
+      return await TronFeeService.estimateTrc20TransferFee(
+        fromAddress: fromAddress,
+        toAddress: toAddress,
+        contractAddress: contractAddress,
+        amount: amount,
+        decimals: decimals,
+        tronRpcBaseUrl: effectiveRpcUrl,
+      );
+    } catch (e) {
+      debugPrint('获取 TRC20 费用估算失败: $e');
+      rethrow;
     }
   }
 

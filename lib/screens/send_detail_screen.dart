@@ -7,6 +7,8 @@ import '../models/network.dart';
 import '../providers/wallet_provider.dart';
 import '../utils/amount_utils.dart';
 import 'qr_scanner_screen.dart';
+import '../services/tron_fee_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SendDetailScreen extends StatefulWidget {
   final Map<String, dynamic>? preselectedToken;
@@ -42,7 +44,9 @@ class _SendDetailScreenState extends State<SendDetailScreen>
   bool isLoading = false;
   bool _gasFeeLocked = false; // Gas 费用锁定标志
   Map<String, dynamic>? _selectedToken; // 选中的代币
-
+  TronFeeEstimate? _tronFeeEstimate; // Tron 费用估算详情
+  int _availableBandwidth = 0; // Tron 可用带宽
+  int _availableEnergy = 0; // Tron 可用能量
   int _gasRefreshCountdown = 10; // 倒计时秒数
 
   @override
@@ -67,11 +71,10 @@ class _SendDetailScreenState extends State<SendDetailScreen>
       final args =
           ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
       if (args != null) {
-        setState(() {
-          network = args['network'] as Network?;
-          address = args['address'] as String?;
-          _selectedToken = args['preselectedToken'] as Map<String, dynamic>?;
-        });
+        // 避免在构建期间调用 setState：直接赋值后再加载数据
+        network = args['network'] as Network?;
+        address = args['address'] as String?;
+        _selectedToken = args['preselectedToken'] as Map<String, dynamic>?;
         _loadInitialData();
       }
     });
@@ -105,6 +108,7 @@ class _SendDetailScreenState extends State<SendDetailScreen>
       _loadRealBalance(),
       _loadGasFee(),
       _loadContacts(),
+      if (network?.id == 'tron') _loadTronResources(),
     ]);
 
     // 启动Gas费用自动刷新
@@ -173,18 +177,124 @@ class _SendDetailScreenState extends State<SendDetailScreen>
           ? double.tryParse(_amountController.text) ?? 0.001
           : 0.001;
 
-      // 使用WalletProvider的费用估算方法
-      final feeEstimate = await walletProvider
-          .getNetworkFeeEstimate(network!.id, amount: amount);
+      // 获取目标地址（用于 Tron 费用估算）
+      final toAddress = _recipientController.text.trim();
 
-      setState(() {
-        gasFee = feeEstimate;
-      });
+      // 判断是否为 TRC20 代币
+      final isNative = _selectedToken?['isNative'] ?? true;
+      final isTRC20 = !isNative &&
+          _selectedToken?['networkId'] == 'tron' &&
+          _selectedToken?['contractAddress'] != null;
+
+      if (network!.id == 'tron' && isTRC20) {
+        // TRC20 代币费用估算
+        if (toAddress.isNotEmpty) {
+          final contractAddress = _selectedToken!['contractAddress'] as String;
+          final decimals = (_selectedToken!['decimals'] as int?) ?? 6;
+
+          final trc20FeeEstimate = await walletProvider.getTrc20FeeEstimate(
+            contractAddress: contractAddress,
+            toAddress: toAddress,
+            amount: amount,
+            decimals: decimals,
+          );
+
+          if (!mounted) return;
+          setState(() {
+            _tronFeeEstimate = trc20FeeEstimate;
+            gasFee = trc20FeeEstimate.totalFeeTrx;
+          });
+        } else {
+          if (!mounted) return;
+          // 没有目标地址时使用默认估算
+          setState(() {
+            gasFee = 14.0; // TRC20 默认费用（包含能量）
+            _tronFeeEstimate = null;
+          });
+        }
+      } else {
+        // 使用WalletProvider的费用估算方法
+        final feeEstimate = await walletProvider.getNetworkFeeEstimate(
+          network!.id,
+          amount: amount,
+          toAddress: toAddress.isNotEmpty ? toAddress : null,
+        );
+
+        if (!mounted) return;
+        setState(() {
+          gasFee = feeEstimate;
+          // 如果是 Tron 原生转账且有目标地址，获取详细费用信息
+          if (network!.id == 'tron' && toAddress.isNotEmpty) {
+            _loadTronFeeDetails(toAddress, amount);
+          } else {
+            _tronFeeEstimate = null;
+          }
+        });
+      }
     } catch (e) {
       debugPrint('获取Gas费用失败: $e');
+      if (!mounted) return;
       setState(() {
-        gasFee = 0.000005; // 默认费用
+        gasFee = network!.id == 'tron' ? 0.1 : 0.000005; // 默认费用
+        _tronFeeEstimate = null;
       });
+    }
+  }
+
+  Future<void> _loadTronFeeDetails(String toAddress, double amount) async {
+    if (network?.id != 'tron') return;
+
+    try {
+      final walletProvider =
+          Provider.of<WalletProvider>(context, listen: false);
+      final fromAddress = walletProvider.getCurrentNetworkAddress();
+      if (fromAddress == null) return;
+
+      final tronNetwork =
+          walletProvider.supportedNetworks.firstWhere((n) => n.id == 'tron');
+
+      final feeEstimate = await TronFeeService.estimateTrxTransferFee(
+        fromAddress: fromAddress,
+        toAddress: toAddress,
+        amountTRX: amount,
+        tronRpcBaseUrl: tronNetwork.rpcUrl,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _tronFeeEstimate = feeEstimate;
+      });
+
+      // 同步刷新资源余额，保持与详情一致
+      await _loadTronResources();
+    } catch (e) {
+      debugPrint('获取 Tron 费用详情失败: $e');
+    }
+  }
+
+  Future<void> _loadTronResources() async {
+    if (network?.id != 'tron') return;
+    try {
+      final walletProvider =
+          Provider.of<WalletProvider>(context, listen: false);
+      final fromAddress = walletProvider.getCurrentNetworkAddress();
+      if (fromAddress == null) return;
+
+      final tronNetwork =
+          walletProvider.supportedNetworks.firstWhere((n) => n.id == 'tron');
+
+      final resources = await TronFeeService.getAccountResources(
+        address: fromAddress,
+        tronRpcBaseUrl: tronNetwork.rpcUrl,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _availableBandwidth = (resources['availableBandwidth'] ?? 0) as int;
+        _availableEnergy = (resources['availableEnergy'] ?? 0) as int;
+      });
+    } catch (e) {
+      debugPrint('获取 Tron 资源失败: $e');
     }
   }
 
@@ -504,12 +614,32 @@ class _SendDetailScreenState extends State<SendDetailScreen>
                 style: TextStyle(color: Colors.white70),
               ),
               const SizedBox(height: 8),
-              SelectableText(
-                txHash,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: SelectableText(
+                      txHash,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.copy, color: Colors.white70, size: 18),
+                    tooltip: '复制',
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: txHash));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('交易哈希已复制到剪贴板'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
               Text(
@@ -524,9 +654,26 @@ class _SendDetailScreenState extends State<SendDetailScreen>
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                // 可以在这里添加查看区块浏览器的功能
+              onPressed: () async {
+                final url = buildTxExplorerUrl(network!.id, network!.explorerUrl, txHash);
+                if (url != null) {
+                  final uri = Uri.parse(url);
+                  if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('无法打开区块浏览器'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('当前网络不支持跳转到区块浏览器'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
               },
               child: const Text('查看详情'),
             ),
@@ -727,6 +874,263 @@ class _SendDetailScreenState extends State<SendDetailScreen>
     }
   }
 
+  /// 构建 Tron 费用详情显示
+  Widget _buildTronFeeDetails() {
+    if (_tronFeeEstimate == null) {
+      return _buildStandardFeeDisplay();
+    }
+
+    final estimate = _tronFeeEstimate!;
+    final priceUsd = _getTokenPrice('tron');
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A2E),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 总费用
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                '总费用',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 14,
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '${estimate.totalFeeTrx.toStringAsFixed(6)} TRX',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    '\$${(estimate.totalFeeTrx * priceUsd).toStringAsFixed(4)}',
+                    style: const TextStyle(
+                      color: Colors.white54,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Divider(color: Colors.white12, height: 1),
+          const SizedBox(height: 12),
+          // 费用明细
+          _buildFeeItem(
+            '带宽',
+            estimate.bandwidthRequired,
+            estimate.bandwidthAvailable,
+            estimate.bandwidthFeeTrx,
+            'Bandwidth',
+          ),
+          if (estimate.energyRequired > 0) ...[
+            const SizedBox(height: 8),
+            _buildFeeItem(
+              '能量',
+              estimate.energyRequired,
+              estimate.energyAvailable,
+              estimate.energyFeeTrx,
+              'Energy',
+            ),
+          ],
+          if (estimate.needsActivation) ...[
+            const SizedBox(height: 8),
+            _buildActivationWarning(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// 构建费用项
+  Widget _buildFeeItem(
+    String label,
+    int required,
+    int available,
+    double feeTrx,
+    String unit,
+  ) {
+    final hasEnough = available >= required;
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                hasEnough
+                    ? '使用${available >= required ? "免费" : "质押"}资源'
+                    : '消耗 ${feeTrx.toStringAsFixed(6)} TRX',
+                style: TextStyle(
+                  color: hasEnough ? Colors.green : Colors.orange,
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Text(
+          '$required / $available',
+          style: TextStyle(
+            color: hasEnough ? Colors.green : Colors.orange,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 构建激活警告
+  Widget _buildActivationWarning() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.orange.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.info_outline,
+            color: Colors.orange,
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '激活新账户',
+                  style: TextStyle(
+                    color: Colors.orange,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '目标地址未激活，需额外消耗 ${_tronFeeEstimate!.activationFeeTrx.toStringAsFixed(1)} TRX',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 构建标准费用显示（非 Tron）
+  Widget _buildStandardFeeDisplay() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A2E),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        '${gasFee.toStringAsFixed(8)} ${network?.symbol ?? 'BNB'}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '\$${(gasFee * _getTokenPrice(network?.id ?? '')).toStringAsFixed(5)}',
+                  style: const TextStyle(
+                    color: Colors.white54,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (network?.id != 'tron')
+            Expanded(
+              flex: 1,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '${(gasFee * 1000000000).toStringAsFixed(0)} GWei',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.right,
+                  ),
+                  const Text(
+                    '普通 (25秒)',
+                    style: TextStyle(
+                      color: Colors.white54,
+                      fontSize: 12,
+                    ),
+                    textAlign: TextAlign.right,
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(width: 8),
+          const Icon(
+            Icons.chevron_right,
+            color: Colors.white54,
+            size: 20,
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -804,14 +1208,41 @@ class _SendDetailScreenState extends State<SendDetailScreen>
                   children: [
                     TextField(
                       controller: _recipientController,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(
-                        hintText: '请输入收款地址',
-                        hintStyle: TextStyle(color: Colors.white54),
-                        border: InputBorder.none,
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13, // 减小字体大小以显示更多内容
                       ),
+                      decoration: InputDecoration(
+                        hintText: '请输入收款地址',
+                        hintStyle: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 13,
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
+                        // 添加清除按钮
+                        suffixIcon: _recipientController.text.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(
+                                  Icons.clear,
+                                  color: Colors.white54,
+                                  size: 20,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _recipientController.clear();
+                                  });
+                                },
+                              )
+                            : null,
+                      ),
+                      onChanged: (value) {
+                        // 触发重建以显示/隐藏清除按钮
+                        setState(() {});
+                      },
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -819,21 +1250,29 @@ class _SendDetailScreenState extends State<SendDetailScreen>
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
+                          // 地址簿图标
                           InkWell(
                             onTap: _showContactSelector,
-                            child: const Icon(
-                              Icons.contacts,
-                              color: Colors.white54,
-                              size: 24,
+                            child: const Padding(
+                              padding: EdgeInsets.all(4),
+                              child: Icon(
+                                Icons.contact_page_outlined,
+                                color: Color(0xFF6C5CE7),
+                                size: 24,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 16),
+                          // 扫描图标 - 四个角框的扫描图标
                           InkWell(
                             onTap: _scanQRCode,
-                            child: const Icon(
-                              Icons.qr_code_scanner,
-                              color: Colors.white54,
-                              size: 24,
+                            child: const Padding(
+                              padding: EdgeInsets.all(4),
+                              child: Icon(
+                                Icons.crop_free,
+                                color: Color(0xFF6C5CE7),
+                                size: 24,
+                              ),
                             ),
                           ),
                         ],
@@ -949,6 +1388,29 @@ class _SendDetailScreenState extends State<SendDetailScreen>
                               ),
                             ),
                           ),
+                          if (network?.id == 'tron') ...[
+                            const Spacer(),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  '带宽: $_availableBandwidth',
+                                  style: const TextStyle(
+                                    color: Colors.white54,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  '能量: $_availableEnergy',
+                                  style: const TextStyle(
+                                    color: Colors.white54,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -960,9 +1422,9 @@ class _SendDetailScreenState extends State<SendDetailScreen>
               // Gas费用显示
               Row(
                 children: [
-                  const Text(
-                    'Gas费',
-                    style: TextStyle(
+                  Text(
+                    network?.id == 'tron' ? '手续费' : 'Gas费',
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -1030,85 +1492,13 @@ class _SendDetailScreenState extends State<SendDetailScreen>
                 ],
               ),
               const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1A1A2E),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white12),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      flex: 2,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  '${gasFee.toStringAsFixed(8)} ${network?.symbol ?? 'BNB'}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '\$${(gasFee * 600).toStringAsFixed(5)}',
-                            style: const TextStyle(
-                              color: Colors.white54,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      flex: 1,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            '${(gasFee * 1000000000).toStringAsFixed(0)} GWei',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.right,
-                          ),
-                          const Text(
-                            '普通 (25秒)',
-                            style: TextStyle(
-                              color: Colors.white54,
-                              fontSize: 12,
-                            ),
-                            textAlign: TextAlign.right,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    const Icon(
-                      Icons.chevron_right,
-                      color: Colors.white54,
-                      size: 20,
-                    ),
-                  ],
-                ),
-              ),
+              const SizedBox(height: 12),
+              // Tron 费用详情显示
+              if (network?.id == 'tron' && _tronFeeEstimate != null)
+                _buildTronFeeDetails()
+              else
+                _buildStandardFeeDisplay(),
               const SizedBox(height: 24),
-
               // 错误信息
               if (errorMessage.isNotEmpty)
                 Container(
@@ -1157,5 +1547,25 @@ class _SendDetailScreenState extends State<SendDetailScreen>
         ),
       ),
     );
+  }
+}
+
+String? buildTxExplorerUrl(String networkId, String base, String txHash) {
+  if (base.isEmpty) return null;
+  switch (networkId) {
+    case 'tron':
+      return '$base/#/transaction/$txHash';
+    case 'ethereum':
+      return '$base/tx/$txHash';
+    case 'bsc':
+      return '$base/tx/$txHash';
+    case 'polygon':
+      return '$base/tx/$txHash';
+    case 'solana':
+      return '$base/tx/$txHash';
+    case 'bitcoin':
+      return '$base/tx/$txHash';
+    default:
+      return '$base/tx/$txHash';
   }
 }

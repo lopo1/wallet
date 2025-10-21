@@ -151,6 +151,18 @@ class TRC20Service {
 
     final publicKey = child.publicKey;
 
+    // 2.1) 校验推导地址是否与 fromAddress 一致（防止签名权限错误）
+    try {
+      final derivedAddress = _deriveAddressFromPublicKey(publicKey);
+      debugPrint('签名地址预校验(TRC20服务): 推导地址 $derivedAddress, 期望地址 $fromAddress');
+      if (derivedAddress != fromAddress) {
+        throw Exception('私钥推导错误: 期望地址 $fromAddress, 实际地址 $derivedAddress');
+      }
+    } catch (e) {
+      debugPrint('TRC20 服务推导地址校验失败: $e');
+      rethrow;
+    }
+
     // 3) 签名
     final rawHex = transaction['raw_data_hex'] as String;
     final rawBytes = Uint8List.fromList(HEX.decode(rawHex));
@@ -401,5 +413,66 @@ class TRC20Service {
       return List<int>.filled(size - list.length, 0)..addAll(list);
     }
     return list;
+  }
+
+
+  // 复制 TronService 的地址推导逻辑，用于校验
+  static String _deriveAddressFromPublicKey(Uint8List publicKey) {
+    // 解压公钥（如果是压缩格式）
+    Uint8List uncompressed;
+    if (publicKey.length == 33) {
+      final curve = ECCurve_secp256k1();
+      final point = curve.curve.decodePoint(publicKey);
+      if (point == null) {
+        throw Exception('无法解压公钥');
+      }
+      uncompressed = point.getEncoded(false);
+    } else if (publicKey.length == 65) {
+      uncompressed = publicKey;
+    } else {
+      throw Exception('无效的公钥长度: ${publicKey.length}');
+    }
+
+    // 对非压缩公钥（去掉0x04前缀）做 keccak256
+    final pkHash = web3_crypto.keccak256(uncompressed.sublist(1));
+    final address20 = pkHash.sublist(12);
+
+    // TRON 地址: 0x41 + 20字节地址
+    final payload = Uint8List.fromList([0x41, ...address20]);
+
+    // 计算 checksum（double sha256）
+    final checksum = _doubleHash256(payload).sublist(0, 4);
+
+    // Base58 编码
+    final base58Address = _base58Encode([...payload, ...checksum]);
+    return base58Address;
+  }
+
+  static Uint8List _doubleHash256(Uint8List input) {
+    final first = dart_crypto.sha256.convert(input).bytes;
+    final second = dart_crypto.sha256.convert(Uint8List.fromList(first)).bytes;
+    return Uint8List.fromList(second);
+  }
+
+  static String _base58Encode(List<int> bytes) {
+    const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+    BigInt intData = BigInt.zero;
+    for (final b in bytes) {
+      intData = (intData << 8) | BigInt.from(b);
+    }
+    String result = '';
+    while (intData > BigInt.zero) {
+      final mod = intData % BigInt.from(58);
+      intData = intData ~/ BigInt.from(58);
+      result = alphabet[mod.toInt()] + result;
+    }
+    for (final b in bytes) {
+      if (b == 0) {
+        result = '1' + result;
+      } else {
+        break;
+      }
+    }
+    return result;
   }
 }
