@@ -8,10 +8,12 @@ class WalletConnectSessionsScreen extends StatefulWidget {
   const WalletConnectSessionsScreen({super.key});
 
   @override
-  State<WalletConnectSessionsScreen> createState() => _WalletConnectSessionsScreenState();
+  State<WalletConnectSessionsScreen> createState() =>
+      _WalletConnectSessionsScreenState();
 }
 
-class _WalletConnectSessionsScreenState extends State<WalletConnectSessionsScreen> {
+class _WalletConnectSessionsScreenState
+    extends State<WalletConnectSessionsScreen> {
   @override
   void initState() {
     super.initState();
@@ -19,11 +21,12 @@ class _WalletConnectSessionsScreenState extends State<WalletConnectSessionsScree
   }
 
   Future<void> _initializeWalletConnect() async {
-    final walletConnectService = Provider.of<WalletConnectService>(context, listen: false);
-    
+    final walletConnectService =
+        Provider.of<WalletConnectService>(context, listen: false);
+
     // 设置上下文，用于显示对话框
     walletConnectService.setContext(context);
-    
+
     if (!walletConnectService.isInitialized) {
       try {
         await walletConnectService.initialize();
@@ -155,8 +158,9 @@ class _WalletConnectSessionsScreenState extends State<WalletConnectSessionsScree
 
   Widget _buildSessionCard(SessionData session, WalletConnectService service) {
     final metadata = session.peer.metadata;
-    final isExpired = DateTime.now().millisecondsSinceEpoch > session.expiry * 1000;
-    
+    final isExpired =
+        DateTime.now().millisecondsSinceEpoch > session.expiry * 1000;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
@@ -226,7 +230,8 @@ class _WalletConnectSessionsScreenState extends State<WalletConnectSessionsScree
                 ),
                 // 状态指示器
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: isExpired ? Colors.red[100] : Colors.green[100],
                     borderRadius: BorderRadius.circular(12),
@@ -261,7 +266,8 @@ class _WalletConnectSessionsScreenState extends State<WalletConnectSessionsScree
               runSpacing: 4,
               children: session.namespaces.keys.map((namespace) {
                 return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: Theme.of(context).primaryColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
@@ -308,7 +314,7 @@ class _WalletConnectSessionsScreenState extends State<WalletConnectSessionsScree
         builder: (context) => const QRScannerScreen(),
       ),
     );
-    
+
     if (result == true) {
       // QR码扫描成功，刷新页面
       setState(() {});
@@ -323,7 +329,8 @@ class _WalletConnectSessionsScreenState extends State<WalletConnectSessionsScree
     }
   }
 
-  Future<void> _disconnectSession(String topic, WalletConnectService service) async {
+  Future<void> _disconnectSession(
+      String topic, WalletConnectService service) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -389,7 +396,8 @@ class _WalletConnectSessionsScreenState extends State<WalletConnectSessionsScree
 
     if (confirmed == true) {
       try {
-        final service = Provider.of<WalletConnectService>(context, listen: false);
+        final service =
+            Provider.of<WalletConnectService>(context, listen: false);
         await service.disconnectAllSessions();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -425,17 +433,20 @@ class _WalletConnectSessionsScreenState extends State<WalletConnectSessionsScree
               _buildDetailRow('URL', session.peer.metadata.url),
               _buildDetailRow('描述', session.peer.metadata.description),
               _buildDetailRow('主题', session.topic),
-              _buildDetailRow('过期时间', 
-                DateTime.fromMillisecondsSinceEpoch(session.expiry * 1000).toString()),
+              _buildDetailRow(
+                  '过期时间',
+                  DateTime.fromMillisecondsSinceEpoch(session.expiry * 1000)
+                      .toString()),
               const SizedBox(height: 8),
               const Text(
                 '支持的命名空间:',
                 style: TextStyle(fontWeight: FontWeight.w600),
               ),
-              ...session.namespaces.entries.map((entry) => 
-                Padding(
+              ...session.namespaces.entries.map(
+                (entry) => Padding(
                   padding: const EdgeInsets.only(left: 8, top: 4),
-                  child: Text('• ${entry.key}: ${entry.value.methods.join(", ")}'),
+                  child:
+                      Text('• ${entry.key}: ${entry.value.methods.join(", ")}'),
                 ),
               ),
             ],
